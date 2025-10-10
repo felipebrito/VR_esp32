@@ -120,6 +120,12 @@ void setup() {
   // Start WebSocket server
   ws.onEvent(onWebSocketEvent);
   server.addHandler(&ws);
+  
+  // Add root handler for testing
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/plain", "ESP32 VR LED Controller - WebSocket Server Running");
+  });
+  
   server.begin();
   
   Serial.println("ESP32 VR LED Controller Ready!");
@@ -159,6 +165,72 @@ void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsE
 }
 
 void handleWebSocketMessage(uint8_t clientNum, char* message) {
+  Serial.printf("Raw message received: %s\n", message);
+  
+  // Handle simple string commands (on1, play1, on2, play2, led1:0, led1:1, etc.)
+  String msgStr = String(message);
+  msgStr.trim();
+  
+      // Handle LED progress commands (led1:0-100, led2:0-100)
+      if (msgStr.startsWith("led")) {
+        int colonIndex = msgStr.indexOf(':');
+        if (colonIndex > 0) {
+          String ledPart = msgStr.substring(3, colonIndex); // Get number after "led"
+          String valuePart = msgStr.substring(colonIndex + 1); // Get value after ":"
+          
+          int playerNumber = ledPart.toInt();
+          int progressValue = valuePart.toInt();
+          
+          if (playerNumber >= 1 && playerNumber <= 2 && progressValue >= 0 && progressValue <= 100) {
+            int playerIndex = playerNumber - 1;
+            
+            // Set player progress and state - let updateProgressLEDs() handle the display
+            players[playerIndex].progress = progressValue / 100.0; // Convert to 0.0-1.0
+            players[playerIndex].state = PLAYING; // Set to playing state to show progress
+            players[playerIndex].lastUpdate = millis() + 10000; // Set future timestamp to prevent automatic animation
+            
+            Serial.printf("Player %d progress set to %d%% (%d LEDs)\n", playerNumber, progressValue, 
+                         playerNumber == 1 ? (int)(progressValue * PLAYER1_LEDS / 100) : (int)(progressValue * PLAYER2_LEDS / 100));
+            return;
+          } else {
+            Serial.printf("Invalid LED command: %s (Player %d, Progress %d)\n", msgStr.c_str(), playerNumber, progressValue);
+            return;
+          }
+        }
+      }
+  
+  if (msgStr == "on1") {
+    players[0].state = READY;
+    players[0].connected = true;
+    players[0].progress = 0.0;
+    players[0].lastUpdate = millis(); // Reset timer for blinking
+    Serial.println("Player 1 ready - green blinking");
+    return;
+  }
+  else if (msgStr == "play1") {
+    players[0].state = PLAYING;
+    players[0].progress = 0.0;
+    players[0].lastUpdate = millis(); // Set start time for 5s animation
+    Serial.println("Player 1 playing - 5s progress animation");
+    return;
+  }
+  else if (msgStr == "on2") {
+    players[1].state = READY;
+    players[1].connected = true;
+    players[1].progress = 0.0;
+    players[1].lastUpdate = millis(); // Reset timer for blinking
+    Serial.println("Player 2 ready - green blinking");
+    return;
+  }
+  else if (msgStr == "play2") {
+    players[1].state = PLAYING;
+    players[1].progress = 0.0;
+    players[1].lastUpdate = millis(); // Set start time for 5s animation
+    Serial.println("Player 2 playing - 5s progress animation");
+    return;
+  }
+  
+  // Try to parse as JSON
   StaticJsonDocument<200> doc;
   DeserializationError error = deserializeJson(doc, message);
   
@@ -168,6 +240,39 @@ void handleWebSocketMessage(uint8_t clientNum, char* message) {
     return;
   }
   
+  // Handle JSON command messages
+  if (doc.containsKey("command")) {
+    String command = doc["command"];
+    Serial.printf("Received JSON command: %s\n", command.c_str());
+    
+    if (command == "on1") {
+      players[0].state = READY;
+      players[0].connected = true;
+      players[0].progress = 0.0;
+      Serial.println("Player 1 ready - green blinking");
+    }
+    else if (command == "play1") {
+      players[0].state = PLAYING;
+      players[0].progress = 0.0;
+      players[0].lastUpdate = millis(); // Set start time for 5s animation
+      Serial.println("Player 1 playing - 5s progress animation");
+    }
+    else if (command == "on2") {
+      players[1].state = READY;
+      players[1].connected = true;
+      players[1].progress = 0.0;
+      Serial.println("Player 2 ready - green blinking");
+    }
+    else if (command == "play2") {
+      players[1].state = PLAYING;
+      players[1].progress = 0.0;
+      players[1].lastUpdate = millis(); // Set start time for 5s animation
+      Serial.println("Player 2 playing - 5s progress animation");
+    }
+    return;
+  }
+  
+  // Handle legacy JSON messages
   int playerId = doc["player"];
   if (playerId < 1 || playerId > 2) {
     Serial.println("Invalid player ID");
@@ -240,29 +345,63 @@ void sendCommandToPlayer(int playerId, String command) {
 
 void handleButtons() {
   handleButton(BUTTON_PLAY_PAUSE, &buttonPlayPause, []() {
-    // Toggle play/pause for both players
+    // Short press: toggle play/pause for both players
+    Serial.println("Button 1 pressed - toggling play/pause");
     for (int i = 0; i < 2; i++) {
       if (players[i].state == PLAYING) {
-        sendCommandToPlayer(i + 1, "pause");
-      } else if (players[i].state == PAUSED || players[i].state == READY) {
-        sendCommandToPlayer(i + 1, "play");
+        players[i].state = PAUSED;
+        Serial.printf("Player %d paused\n", i + 1);
+      } else if (players[i].state == PAUSED) {
+        // Resume from where it was paused
+        players[i].state = PLAYING;
+        players[i].lastUpdate = millis() - (players[i].progress * 5000); // Adjust timer to continue from paused position
+        Serial.printf("Player %d resumed\n", i + 1);
+      } else if (players[i].state == READY) {
+        // Start new playback
+        players[i].state = PLAYING;
+        players[i].progress = 0.0;
+        players[i].lastUpdate = millis();
+        Serial.printf("Player %d started\n", i + 1);
       }
-    }
-  }, nullptr);
-  
-  handleButton(BUTTON_EFFECT_STOP, &buttonEffectStop, []() {
-    // Short press: change effect
-    if (!buttonEffectStop.longPressDetected) {
-      cycleEffect();
     }
   }, []() {
-    // Long press: stop all players
+    // Long press: stop all players and turn off LEDs
+    Serial.println("Button 1 long press - stopping all players");
     for (int i = 0; i < 2; i++) {
-      if (players[i].state == PLAYING || players[i].state == PAUSED) {
-        sendCommandToPlayer(i + 1, "stop");
-      }
+      players[i].state = DISCONNECTED;
+      players[i].connected = false;
+      players[i].progress = 0.0;
     }
-    Serial.println("Long press detected - stopping all players");
+    Serial.println("All players stopped and LEDs turned off");
+  });
+  
+  handleButton(BUTTON_EFFECT_STOP, &buttonEffectStop, []() {
+    // Short press: control Player 2 (play/pause)
+    Serial.println("Button 2 pressed - controlling Player 2");
+    if (players[1].state == PLAYING) {
+      players[1].state = PAUSED;
+      Serial.println("Player 2 paused");
+    } else if (players[1].state == PAUSED) {
+      // Resume from where it was paused
+      players[1].state = PLAYING;
+      players[1].lastUpdate = millis() - (players[1].progress * 5000);
+      Serial.println("Player 2 resumed");
+    } else if (players[1].state == READY) {
+      // Start new playback
+      players[1].state = PLAYING;
+      players[1].progress = 0.0;
+      players[1].lastUpdate = millis();
+      Serial.println("Player 2 started");
+    }
+  }, []() {
+    // Long press: reset all players and turn off LEDs
+    Serial.println("Button 2 long press - resetting all players");
+    for (int i = 0; i < 2; i++) {
+      players[i].state = DISCONNECTED;
+      players[i].connected = false;
+      players[i].progress = 0.0;
+    }
+    Serial.println("All players reset and LEDs turned off");
   });
 }
 
@@ -354,24 +493,69 @@ void updateLEDs() {
 }
 
 void updateProgressLEDs() {
+  unsigned long now = millis();
+  
   // Player 1 progress (LEDs 1-8, left to right)
   if (players[0].state == PLAYING) {
+    // Only animate if it's an automatic play (not manual led1:X command)
+    unsigned long playTime = now - players[0].lastUpdate;
+    if (playTime < 6000) { // Only animate for first 6 seconds after play command
+      float progress = min(1.0, playTime / 5000.0); // 5 seconds = 5000ms
+      
+      int player1LEDs = (int)(progress * PLAYER1_LEDS);
+      for (int i = 0; i < player1LEDs; i++) {
+        leds[i] = CRGB::Blue;
+      }
+      
+      // Update progress for display
+      players[0].progress = progress;
+    } else {
+      // Show current progress without animation
+      int player1LEDs = (int)(players[0].progress * PLAYER1_LEDS);
+      for (int i = 0; i < player1LEDs; i++) {
+        leds[i] = CRGB::Blue;
+      }
+    }
+  }
+  else if (players[0].state == PAUSED) {
+    // Show paused state with dimmer blue LEDs
     int player1LEDs = (int)(players[0].progress * PLAYER1_LEDS);
     for (int i = 0; i < player1LEDs; i++) {
-      leds[i] = CRGB::Blue;
+      leds[i] = CRGB(0, 0, 64); // Dim blue for paused
     }
   }
   
   // Player 2 progress (LEDs 9-16, right to left)
   if (players[1].state == PLAYING) {
+    // Only animate if it's an automatic play (not manual led2:X command)
+    unsigned long playTime = now - players[1].lastUpdate;
+    if (playTime < 6000) { // Only animate for first 6 seconds after play command
+      float progress = min(1.0, playTime / 5000.0); // 5 seconds = 5000ms
+      
+      int player2LEDs = (int)(progress * PLAYER2_LEDS);
+      for (int i = 0; i < player2LEDs; i++) {
+        leds[NUM_LEDS - 1 - i] = CRGB::Red;
+      }
+      
+      // Update progress for display
+      players[1].progress = progress;
+    } else {
+      // Show current progress without animation
+      int player2LEDs = (int)(players[1].progress * PLAYER2_LEDS);
+      for (int i = 0; i < player2LEDs; i++) {
+        leds[NUM_LEDS - 1 - i] = CRGB::Red;
+      }
+    }
+  }
+  else if (players[1].state == PAUSED) {
+    // Show paused state with dimmer red LEDs
     int player2LEDs = (int)(players[1].progress * PLAYER2_LEDS);
     for (int i = 0; i < player2LEDs; i++) {
-      leds[NUM_LEDS - 1 - i] = CRGB::Red;
+      leds[NUM_LEDS - 1 - i] = CRGB(64, 0, 0); // Dim red for paused
     }
   }
   
-  // Ready state blinking
-  unsigned long now = millis();
+  // Ready state blinking (green)
   bool blinkState = (now / READY_BLINK_INTERVAL) % 2;
   
   if (players[0].state == READY && blinkState) {
@@ -435,3 +619,4 @@ void clearAllLEDs() {
     leds[i] = CRGB::Black;
   }
 }
+
