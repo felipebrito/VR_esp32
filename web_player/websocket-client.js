@@ -206,6 +206,11 @@ class ESP32WebSocketClient {
         this.sendCommand('led1:0');
         this.sendCommand('led2:0');
         
+        // Apagar LEDs virtuais
+        if (window.ledVisualizer) {
+            window.ledVisualizer.clearAllLEDs();
+        }
+        
         // Atualizar interface
         this.updateSyncControls();
         this.updatePlayerStatus(1, 'headset', 'offline');
@@ -345,11 +350,26 @@ class ESP32WebSocketClient {
             this.updatePlayerStatus(2, 'headset', 'online');
             this.updatePlayerStatus(1, 'player', 'connected');
             this.updatePlayerStatus(2, 'player', 'connected');
+            
+            // Atualizar LEDs virtuais
+            if (window.ledVisualizer) {
+                window.ledVisualizer.startPlayer1Blinking();
+                window.ledVisualizer.startPlayer2Blinking();
+            }
         } else {
             this.log(`Simulando: Headset colocado (Player ${this.selectedPlayer})`, 'info');
             this.sendCommand(`on${this.selectedPlayer}`);
             this.updatePlayerStatus(this.selectedPlayer, 'headset', 'online');
             this.updatePlayerStatus(this.selectedPlayer, 'player', 'connected');
+            
+            // Atualizar LEDs virtuais
+            if (window.ledVisualizer) {
+                if (this.selectedPlayer == 1) {
+                    window.ledVisualizer.startPlayer1Blinking();
+                } else if (this.selectedPlayer == 2) {
+                    window.ledVisualizer.startPlayer2Blinking();
+                }
+            }
         }
     }
     
@@ -360,13 +380,28 @@ class ESP32WebSocketClient {
             this.sendCommand('off2');
             this.updatePlayerStatus(1, 'headset', 'offline');
             this.updatePlayerStatus(2, 'headset', 'offline');
-            this.updatePlayerStatus(1, 'player', 'disconnected');
-            this.updatePlayerStatus(2, 'player', 'disconnected');
+            this.updatePlayerStatus(1, 'player', 'paused');
+            this.updatePlayerStatus(2, 'player', 'paused');
+            
+            // Atualizar LEDs virtuais - mostrar laranja (pausado por headset)
+            if (window.ledVisualizer) {
+                window.ledVisualizer.startPlayer1OfflineBlinking();
+                window.ledVisualizer.startPlayer2OfflineBlinking();
+            }
         } else {
             this.log(`Simulando: Headset removido (Player ${this.selectedPlayer})`, 'info');
             this.sendCommand(`off${this.selectedPlayer}`);
             this.updatePlayerStatus(this.selectedPlayer, 'headset', 'offline');
-            this.updatePlayerStatus(this.selectedPlayer, 'player', 'disconnected');
+            this.updatePlayerStatus(this.selectedPlayer, 'player', 'paused');
+            
+            // Atualizar LEDs virtuais - mostrar laranja (pausado por headset)
+            if (window.ledVisualizer) {
+                if (this.selectedPlayer == 1) {
+                    window.ledVisualizer.startPlayer1OfflineBlinking();
+                } else if (this.selectedPlayer == 2) {
+                    window.ledVisualizer.startPlayer2OfflineBlinking();
+                }
+            }
         }
     }
     
