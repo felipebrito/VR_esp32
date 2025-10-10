@@ -116,34 +116,64 @@ class LEDVisualizer {
     startPlayer1Blinking() {
         this.stopPlayer1Blinking();
         
-        this.player1LEDs.forEach(led => {
-            led.classList.add('ready');
-            led.classList.remove('player1', 'player2', 'active');
-        });
+        // Piscar apenas o LED do meio (LED 4)
+        const middleLed = this.player1LEDs[3]; // LED 4 (índice 3)
+        if (middleLed) {
+            middleLed.classList.add('ready');
+            middleLed.classList.remove('player1', 'player2', 'active');
+        }
         
-        this.log('Player 1 LEDs piscando verde (READY)', 'info');
+        this.log('Player 1 LED do meio piscando verde (READY)', 'info');
     }
     
     startPlayer2Blinking() {
         this.stopPlayer2Blinking();
         
-        this.player2LEDs.forEach(led => {
-            led.classList.add('ready');
-            led.classList.remove('player1', 'player2', 'active');
-        });
+        // Piscar apenas o LED do meio (LED 12)
+        const middleLed = this.player2LEDs[3]; // LED 12 (índice 3)
+        if (middleLed) {
+            middleLed.classList.add('ready');
+            middleLed.classList.remove('player1', 'player2', 'active');
+        }
         
-        this.log('Player 2 LEDs piscando verde (READY)', 'info');
+        this.log('Player 2 LED do meio piscando verde (READY)', 'info');
+    }
+    
+    startPlayer1OfflineBlinking() {
+        this.stopPlayer1Blinking();
+        
+        // Piscar apenas o LED do meio (LED 4) em laranja
+        const middleLed = this.player1LEDs[3]; // LED 4 (índice 3)
+        if (middleLed) {
+            middleLed.classList.add('offline');
+            middleLed.classList.remove('player1', 'player2', 'active', 'ready');
+        }
+        
+        this.log('Player 1 LED do meio piscando laranja (OFFLINE)', 'warning');
+    }
+    
+    startPlayer2OfflineBlinking() {
+        this.stopPlayer2Blinking();
+        
+        // Piscar apenas o LED do meio (LED 12) em laranja
+        const middleLed = this.player2LEDs[3]; // LED 12 (índice 3)
+        if (middleLed) {
+            middleLed.classList.add('offline');
+            middleLed.classList.remove('player1', 'player2', 'active', 'ready');
+        }
+        
+        this.log('Player 2 LED do meio piscando laranja (OFFLINE)', 'warning');
     }
     
     stopPlayer1Blinking() {
         this.player1LEDs.forEach(led => {
-            led.classList.remove('ready');
+            led.classList.remove('ready', 'offline');
         });
     }
     
     stopPlayer2Blinking() {
         this.player2LEDs.forEach(led => {
-            led.classList.remove('ready');
+            led.classList.remove('ready', 'offline');
         });
     }
     

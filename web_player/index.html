@@ -26,31 +26,94 @@
             <!-- Simulação de eventos Meta Quest -->
             <div class="quest-simulator">
                 <h2>🎮 Simulação Meta Quest</h2>
-                <div class="simulation-controls">
-                    <button id="simulateHeadsetOn" class="btn btn-success">Headset ON</button>
-                    <button id="simulateHeadsetOff" class="btn btn-danger">Headset OFF</button>
-                    <button id="simulateFocus" class="btn btn-info">App Focus</button>
-                    <button id="simulateUnfocus" class="btn btn-warning">App Unfocus</button>
+                
+                <!-- Seleção de Player -->
+                <div class="player-selection">
+                    <h3>Selecionar Player:</h3>
+                    <div class="player-buttons">
+                        <button id="selectPlayer1" class="btn btn-primary active">Player 1</button>
+                        <button id="selectPlayer2" class="btn btn-secondary">Player 2</button>
+                        <button id="selectBothPlayers" class="btn btn-info">Ambos</button>
+                    </div>
+                </div>
+                
+                <!-- Controles de Headset -->
+                <div class="headset-controls">
+                    <h3>Controles de Headset:</h3>
+                    <div class="simulation-controls">
+                        <button id="simulateHeadsetOn" class="btn btn-success">Headset ON</button>
+                        <button id="simulateHeadsetOff" class="btn btn-danger">Headset OFF</button>
+                        <button id="simulateFocus" class="btn btn-info">App Focus</button>
+                        <button id="simulateUnfocus" class="btn btn-warning">App Unfocus</button>
+                    </div>
+                </div>
+                
+                <!-- Sessão Síncrona -->
+                <div class="sync-session">
+                    <h3>Sessão Síncrona:</h3>
+                    <div class="sync-controls">
+                        <button id="startSyncSession" class="btn btn-success">Iniciar Sessão Síncrona</button>
+                        <button id="stopSyncSession" class="btn btn-danger" disabled>Parar Sessão</button>
+                        <button id="pauseSyncSession" class="btn btn-warning" disabled>Pausar Sessão</button>
+                    </div>
                 </div>
                 
                 <div class="player-status">
-                    <h3>Status do Player</h3>
+                    <h3>Status dos Players</h3>
                     <div class="status-indicators">
-                        <div class="status-item">
-                            <span class="label">Headset:</span>
-                            <span id="headsetStatus" class="status-value offline">OFFLINE</span>
+                        <!-- Player 1 Status -->
+                        <div class="player-status-section">
+                            <h4>Player 1:</h4>
+                            <div class="status-item">
+                                <span class="label">Headset:</span>
+                                <span id="headsetStatus1" class="status-value offline">OFFLINE</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="label">App Focus:</span>
+                                <span id="focusStatus1" class="status-value unfocused">UNFOCUSED</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="label">Player:</span>
+                                <span id="playerStatus1" class="status-value disconnected">DISCONNECTED</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="label">Progresso:</span>
+                                <span id="progressStatus1" class="status-value">0%</span>
+                            </div>
                         </div>
-                        <div class="status-item">
-                            <span class="label">App Focus:</span>
-                            <span id="focusStatus" class="status-value unfocused">UNFOCUSED</span>
+                        
+                        <!-- Player 2 Status -->
+                        <div class="player-status-section">
+                            <h4>Player 2:</h4>
+                            <div class="status-item">
+                                <span class="label">Headset:</span>
+                                <span id="headsetStatus2" class="status-value offline">OFFLINE</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="label">App Focus:</span>
+                                <span id="focusStatus2" class="status-value unfocused">UNFOCUSED</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="label">Player:</span>
+                                <span id="playerStatus2" class="status-value disconnected">DISCONNECTED</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="label">Progresso:</span>
+                                <span id="progressStatus2" class="status-value">0%</span>
+                            </div>
                         </div>
-                        <div class="status-item">
-                            <span class="label">Player:</span>
-                            <span id="playerStatus" class="status-value disconnected">DISCONNECTED</span>
-                        </div>
-                        <div class="status-item">
-                            <span class="label">Progresso:</span>
-                            <span id="progressStatus" class="status-value">0%</span>
+                        
+                        <!-- Sessão Síncrona Status -->
+                        <div class="sync-status-section">
+                            <h4>Sessão Síncrona:</h4>
+                            <div class="status-item">
+                                <span class="label">Status:</span>
+                                <span id="syncStatus" class="status-value inactive">INATIVA</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="label">Players Ativos:</span>
+                                <span id="activePlayers" class="status-value">0</span>
+                            </div>
                         </div>
                     </div>
                 </div>

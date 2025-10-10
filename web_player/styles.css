@@ -174,11 +174,71 @@ body {
     font-size: 1.5rem;
 }
 
+/* Seleção de Player */
+.player-selection {
+    background: #f7fafc;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.player-selection h3 {
+    color: #4a5568;
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+}
+
+.player-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.player-buttons .btn.active {
+    background: #667eea;
+    color: white;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* Controles de Headset */
+.headset-controls {
+    background: #f7fafc;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.headset-controls h3 {
+    color: #4a5568;
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+}
+
 .simulation-controls {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
     margin-bottom: 20px;
+}
+
+/* Sessão Síncrona */
+.sync-session {
+    background: #f7fafc;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+.sync-session h3 {
+    color: #4a5568;
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+}
+
+.sync-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .player-status {
@@ -252,6 +312,54 @@ body {
 .status-value.disconnected {
     background: #fed7d7;
     color: #742a2a;
+}
+
+.status-value.inactive {
+    background: #e2e8f0;
+    color: #4a5568;
+}
+
+.status-value.active {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+/* Seções de Status dos Players */
+.player-status-section {
+    background: white;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 15px;
+    border-left: 4px solid #e2e8f0;
+}
+
+.player-status-section h4 {
+    color: #4a5568;
+    margin-bottom: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.player-status-section:first-child {
+    border-left-color: #4299e1; /* Azul para Player 1 */
+}
+
+.player-status-section:nth-child(2) {
+    border-left-color: #f56565; /* Vermelho para Player 2 */
+}
+
+.sync-status-section {
+    background: white;
+    border-radius: 8px;
+    padding: 12px;
+    border-left: 4px solid #9f7aea; /* Roxo para Sessão Síncrona */
+}
+
+.sync-status-section h4 {
+    color: #4a5568;
+    margin-bottom: 10px;
+    font-size: 1rem;
+    font-weight: 600;
 }
 
 /* Player de vídeo */
@@ -468,6 +576,12 @@ body {
 .led.ready {
     background: #48bb78;
     border-color: #38a169;
+    animation: blink 1s infinite;
+}
+
+.led.offline {
+    background: #ff8800;
+    border-color: #e67e22;
     animation: blink 1s infinite;
 }
 

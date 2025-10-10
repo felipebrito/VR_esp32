@@ -9,7 +9,12 @@ class ESP32WebSocketClient {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 3000;
-        this.playerId = 1; // Player padrão
+        this.selectedPlayer = 1; // Player selecionado (1, 2, ou 'both')
+        this.syncSessionActive = false;
+        this.players = {
+            1: { headsetOn: false, appFocused: false, state: 'disconnected', progress: 0 },
+            2: { headsetOn: false, appFocused: false, state: 'disconnected', progress: 0 }
+        };
         this.callbacks = {
             onConnect: [],
             onDisconnect: [],
@@ -29,6 +34,22 @@ class ESP32WebSocketClient {
         // Botões de conexão
         document.getElementById('connectBtn').addEventListener('click', () => this.connect());
         document.getElementById('disconnectBtn').addEventListener('click', () => this.disconnect());
+        
+        // Seleção de Player
+        document.getElementById('selectPlayer1').addEventListener('click', () => this.selectPlayer(1));
+        document.getElementById('selectPlayer2').addEventListener('click', () => this.selectPlayer(2));
+        document.getElementById('selectBothPlayers').addEventListener('click', () => this.selectPlayer('both'));
+        
+        // Controles de Headset
+        document.getElementById('simulateHeadsetOn').addEventListener('click', () => this.simulateHeadsetOn());
+        document.getElementById('simulateHeadsetOff').addEventListener('click', () => this.simulateHeadsetOff());
+        document.getElementById('simulateFocus').addEventListener('click', () => this.simulateAppFocus());
+        document.getElementById('simulateUnfocus').addEventListener('click', () => this.simulateAppUnfocus());
+        
+        // Sessão Síncrona
+        document.getElementById('startSyncSession').addEventListener('click', () => this.startSyncSession());
+        document.getElementById('stopSyncSession').addEventListener('click', () => this.stopSyncSession());
+        document.getElementById('pauseSyncSession').addEventListener('click', () => this.pauseSyncSession());
         
         // Botões de teste
         document.getElementById('testOn1').addEventListener('click', () => this.sendCommand('on1'));
@@ -124,8 +145,121 @@ class ESP32WebSocketClient {
     }
     
     sendProgress(progress) {
-        const command = `led${this.playerId}:${progress}`;
-        return this.sendCommand(command);
+        if (this.selectedPlayer === 'both') {
+            // Enviar para ambos os players
+            this.sendCommand(`led1:${progress}`);
+            this.sendCommand(`led2:${progress}`);
+            return true;
+        } else {
+            const command = `led${this.selectedPlayer}:${progress}`;
+            return this.sendCommand(command);
+        }
+    }
+    
+    selectPlayer(player) {
+        this.selectedPlayer = player;
+        
+        // Atualizar botões de seleção
+        document.getElementById('selectPlayer1').classList.remove('active');
+        document.getElementById('selectPlayer2').classList.remove('active');
+        document.getElementById('selectBothPlayers').classList.remove('active');
+        
+        if (player === 1) {
+            document.getElementById('selectPlayer1').classList.add('active');
+        } else if (player === 2) {
+            document.getElementById('selectPlayer2').classList.add('active');
+        } else if (player === 'both') {
+            document.getElementById('selectBothPlayers').classList.add('active');
+        }
+        
+        this.log(`Player selecionado: ${player === 'both' ? 'Ambos' : `Player ${player}`}`, 'info');
+    }
+    
+    startSyncSession() {
+        this.syncSessionActive = true;
+        this.log('Iniciando sessão síncrona...', 'success');
+        
+        // Ativar ambos os players
+        this.players[1].state = 'ready';
+        this.players[2].state = 'ready';
+        
+        // Enviar comandos para ESP32
+        this.sendCommand('on1');
+        this.sendCommand('on2');
+        
+        // Atualizar interface
+        this.updateSyncControls();
+        this.updatePlayerStatus(1, 'headset', 'online');
+        this.updatePlayerStatus(2, 'headset', 'online');
+        this.updateSyncStatus('active');
+    }
+    
+    stopSyncSession() {
+        this.syncSessionActive = false;
+        this.log('Parando sessão síncrona...', 'info');
+        
+        // Desativar ambos os players
+        this.players[1].state = 'disconnected';
+        this.players[2].state = 'disconnected';
+        
+        // Enviar comandos para ESP32
+        this.sendCommand('led1:0');
+        this.sendCommand('led2:0');
+        
+        // Atualizar interface
+        this.updateSyncControls();
+        this.updatePlayerStatus(1, 'headset', 'offline');
+        this.updatePlayerStatus(2, 'headset', 'offline');
+        this.updateSyncStatus('inactive');
+    }
+    
+    pauseSyncSession() {
+        if (!this.syncSessionActive) return;
+        
+        this.log('Pausando sessão síncrona...', 'warning');
+        
+        // Pausar ambos os players
+        this.players[1].state = 'paused';
+        this.players[2].state = 'paused';
+        
+        // Enviar comandos para ESP32
+        this.sendCommand('pause1');
+        this.sendCommand('pause2');
+        
+        // Atualizar interface
+        this.updatePlayerStatus(1, 'player', 'paused');
+        this.updatePlayerStatus(2, 'player', 'paused');
+    }
+    
+    updateSyncControls() {
+        const startBtn = document.getElementById('startSyncSession');
+        const stopBtn = document.getElementById('stopSyncSession');
+        const pauseBtn = document.getElementById('pauseSyncSession');
+        
+        if (this.syncSessionActive) {
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            pauseBtn.disabled = false;
+        } else {
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            pauseBtn.disabled = true;
+        }
+    }
+    
+    updateSyncStatus(status) {
+        const syncStatusElement = document.getElementById('syncStatus');
+        const activePlayersElement = document.getElementById('activePlayers');
+        
+        if (syncStatusElement) {
+            syncStatusElement.textContent = status.toUpperCase();
+            syncStatusElement.className = `status-value ${status}`;
+        }
+        
+        if (activePlayersElement) {
+            const activeCount = Object.values(this.players).filter(p => p.state !== 'disconnected').length;
+            activePlayersElement.textContent = activeCount.toString();
+        }
     }
     
     handleESP32Message(message) {
@@ -203,50 +337,102 @@ class ESP32WebSocketClient {
     
     // Métodos para simulação de eventos Meta Quest
     simulateHeadsetOn() {
-        this.log('Simulando: Headset colocado', 'info');
-        this.sendCommand(`on${this.playerId}`);
-        this.updatePlayerStatus('headset', 'online');
-        this.updatePlayerStatus('player', 'connected');
+        if (this.selectedPlayer === 'both') {
+            this.log('Simulando: Headset colocado (Ambos players)', 'info');
+            this.sendCommand('on1');
+            this.sendCommand('on2');
+            this.updatePlayerStatus(1, 'headset', 'online');
+            this.updatePlayerStatus(2, 'headset', 'online');
+            this.updatePlayerStatus(1, 'player', 'connected');
+            this.updatePlayerStatus(2, 'player', 'connected');
+        } else {
+            this.log(`Simulando: Headset colocado (Player ${this.selectedPlayer})`, 'info');
+            this.sendCommand(`on${this.selectedPlayer}`);
+            this.updatePlayerStatus(this.selectedPlayer, 'headset', 'online');
+            this.updatePlayerStatus(this.selectedPlayer, 'player', 'connected');
+        }
     }
     
     simulateHeadsetOff() {
-        this.log('Simulando: Headset removido', 'info');
-        this.sendCommand(`off${this.playerId}`);
-        this.updatePlayerStatus('headset', 'offline');
-        this.updatePlayerStatus('player', 'disconnected');
+        if (this.selectedPlayer === 'both') {
+            this.log('Simulando: Headset removido (Ambos players)', 'info');
+            this.sendCommand('led1:0');
+            this.sendCommand('led2:0');
+            this.updatePlayerStatus(1, 'headset', 'offline');
+            this.updatePlayerStatus(2, 'headset', 'offline');
+            this.updatePlayerStatus(1, 'player', 'disconnected');
+            this.updatePlayerStatus(2, 'player', 'disconnected');
+        } else {
+            this.log(`Simulando: Headset removido (Player ${this.selectedPlayer})`, 'info');
+            this.sendCommand(`led${this.selectedPlayer}:0`);
+            this.updatePlayerStatus(this.selectedPlayer, 'headset', 'offline');
+            this.updatePlayerStatus(this.selectedPlayer, 'player', 'disconnected');
+        }
     }
     
     simulateAppFocus() {
-        this.log('Simulando: App ganhou foco', 'info');
-        this.updatePlayerStatus('focus', 'focused');
-        this.sendCommand(`on${this.playerId}`);
+        if (this.selectedPlayer === 'both') {
+            this.log('Simulando: App ganhou foco (Ambos players)', 'info');
+            this.updatePlayerStatus(1, 'focus', 'focused');
+            this.updatePlayerStatus(2, 'focus', 'focused');
+            this.sendCommand('on1');
+            this.sendCommand('on2');
+        } else {
+            this.log(`Simulando: App ganhou foco (Player ${this.selectedPlayer})`, 'info');
+            this.updatePlayerStatus(this.selectedPlayer, 'focus', 'focused');
+            this.sendCommand(`on${this.selectedPlayer}`);
+        }
     }
     
     simulateAppUnfocus() {
-        this.log('Simulando: App perdeu foco', 'info');
-        this.updatePlayerStatus('focus', 'unfocused');
-        this.sendCommand(`pause${this.playerId}`);
+        if (this.selectedPlayer === 'both') {
+            this.log('Simulando: App perdeu foco (Ambos players)', 'info');
+            this.updatePlayerStatus(1, 'focus', 'unfocused');
+            this.updatePlayerStatus(2, 'focus', 'unfocused');
+            this.sendCommand('pause1');
+            this.sendCommand('pause2');
+        } else {
+            this.log(`Simulando: App perdeu foco (Player ${this.selectedPlayer})`, 'info');
+            this.updatePlayerStatus(this.selectedPlayer, 'focus', 'unfocused');
+            this.sendCommand(`pause${this.selectedPlayer}`);
+        }
     }
     
-    updatePlayerStatus(type, status) {
-        const statusElement = document.getElementById(`${type}Status`);
+    updatePlayerStatus(playerId, type, status) {
+        const statusElement = document.getElementById(`${type}Status${playerId}`);
         if (statusElement) {
             statusElement.textContent = status.toUpperCase();
             statusElement.className = `status-value ${status}`;
         }
+        
+        // Atualizar estado interno
+        if (this.players[playerId]) {
+            if (type === 'headset') {
+                this.players[playerId].headsetOn = (status === 'online');
+            } else if (type === 'focus') {
+                this.players[playerId].appFocused = (status === 'focused');
+            } else if (type === 'player') {
+                this.players[playerId].state = status;
+            }
+        }
+        
+        // Atualizar contador de players ativos
+        this.updateSyncStatus(this.syncSessionActive ? 'active' : 'inactive');
     }
     
     updateProgress(progress) {
-        const progressElement = document.getElementById('progressStatus');
-        if (progressElement) {
-            progressElement.textContent = `${progress}%`;
+        if (this.selectedPlayer === 'both') {
+            const progressElement1 = document.getElementById('progressStatus1');
+            const progressElement2 = document.getElementById('progressStatus2');
+            if (progressElement1) progressElement1.textContent = `${progress}%`;
+            if (progressElement2) progressElement2.textContent = `${progress}%`;
+        } else {
+            const progressElement = document.getElementById(`progressStatus${this.selectedPlayer}`);
+            if (progressElement) {
+                progressElement.textContent = `${progress}%`;
+            }
         }
         this.sendProgress(progress);
-    }
-    
-    setPlayerId(playerId) {
-        this.playerId = playerId;
-        this.log(`Player ID alterado para: ${playerId}`, 'info');
     }
 }
 
