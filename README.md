@@ -164,6 +164,25 @@ LED 1 → LED 8        LED 16 ← LED 9
    python led_control_test.py <ESP32_IP>
    ```
 
+### 🌐 Web Player Simulator
+
+**Complete VR Event Simulator:**
+```bash
+cd web_player
+# Open index.html in modern browser
+# Or use local server:
+python -m http.server 8000
+# Access: http://localhost:8000
+```
+
+**Features:**
+- **Meta Quest Event Simulation**: Headset ON/OFF, App Focus, Player States
+- **360° Video Player**: Three.js-based 360° video playback
+- **Real-time LED Visualization**: Visual representation of ESP32 LEDs
+- **WebSocket Integration**: Full bidirectional communication with ESP32
+- **Automatic Mode**: Complete event sequence for testing
+- **Keyboard Shortcuts**: Full keyboard control for all functions
+
 **Interactive Commands:**
 - `r` - Send ready status
 - `p` - Start playback simulation
@@ -259,6 +278,16 @@ BIJARI_VR/
 │   ├── aparato_test.py          # APARATO-specific testing
 │   ├── led_control_test.py      # Direct LED control testing
 │   └── requirements.txt         # Python dependencies
+├── web_player/                  # Web-based VR simulator
+│   ├── index.html               # Main interface
+│   ├── styles.css               # Styling
+│   ├── websocket-client.js      # WebSocket communication
+│   ├── quest-simulator.js       # Meta Quest event simulation
+│   ├── video-player.js          # 360° video player
+│   ├── led-visualizer.js        # LED status visualization
+│   ├── main.js                  # Module integration
+│   ├── README.md                # Web player documentation
+│   └── VIDEO_SAMPLES.md         # Video samples for testing
 ├── .gitignore                   # Git ignore file
 └── README.md                    # This file
 ```

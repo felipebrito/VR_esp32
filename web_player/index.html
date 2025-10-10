@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VR Player Simulator - ESP32 LED Controller</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header com controles principais -->
+        <header class="header">
+            <h1>🥽 VR Player Simulator</h1>
+            <div class="connection-status">
+                <span id="connectionStatus" class="status disconnected">Desconectado</span>
+                <input type="text" id="esp32IP" placeholder="IP do ESP32" value="192.168.1.100">
+                <button id="connectBtn">Conectar</button>
+                <button id="disconnectBtn" disabled>Desconectar</button>
+            </div>
+        </header>
+
+        <!-- Painel de controle principal -->
+        <div class="main-panel">
+            <!-- Simulação de eventos Meta Quest -->
+            <div class="quest-simulator">
+                <h2>🎮 Simulação Meta Quest</h2>
+                <div class="simulation-controls">
+                    <button id="simulateHeadsetOn" class="btn btn-success">Headset ON</button>
+                    <button id="simulateHeadsetOff" class="btn btn-danger">Headset OFF</button>
+                    <button id="simulateFocus" class="btn btn-info">App Focus</button>
+                    <button id="simulateUnfocus" class="btn btn-warning">App Unfocus</button>
+                </div>
+                
+                <div class="player-status">
+                    <h3>Status do Player</h3>
+                    <div class="status-indicators">
+                        <div class="status-item">
+                            <span class="label">Headset:</span>
+                            <span id="headsetStatus" class="status-value offline">OFFLINE</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">App Focus:</span>
+                            <span id="focusStatus" class="status-value unfocused">UNFOCUSED</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Player:</span>
+                            <span id="playerStatus" class="status-value disconnected">DISCONNECTED</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="label">Progresso:</span>
+                            <span id="progressStatus" class="status-value">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Player de vídeo 360° -->
+            <div class="video-player">
+                <h2>🎥 Player de Vídeo 360°</h2>
+                <div class="video-container">
+                    <div id="video360" class="video-360">
+                        <!-- Player 360° será inserido aqui via JavaScript -->
+                    </div>
+                    <div class="video-controls">
+                        <button id="playBtn" class="btn btn-primary">▶️ Play</button>
+                        <button id="pauseBtn" class="btn btn-secondary" disabled>⏸️ Pause</button>
+                        <button id="stopBtn" class="btn btn-danger">⏹️ Stop</button>
+                        <input type="range" id="progressSlider" min="0" max="100" value="0" class="progress-slider">
+                        <span id="timeDisplay">00:00 / 00:00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Painel de debug e logs -->
+        <div class="debug-panel">
+            <h2>🔧 Debug & Logs</h2>
+            <div class="debug-controls">
+                <button id="testOn1" class="btn btn-test">Teste on1</button>
+                <button id="testPlay1" class="btn btn-test">Teste play1</button>
+                <button id="testLed1" class="btn btn-test">Teste led1:50</button>
+                <button id="testOn2" class="btn btn-test">Teste on2</button>
+                <button id="testPlay2" class="btn btn-test">Teste play2</button>
+                <button id="testLed2" class="btn btn-test">Teste led2:75</button>
+                <button id="clearLogs" class="btn btn-clear">Limpar Logs</button>
+            </div>
+            
+            <div class="logs-container">
+                <div id="logs" class="logs"></div>
+            </div>
+        </div>
+
+        <!-- Status dos LEDs ESP32 -->
+        <div class="led-status">
+            <h2>💡 Status dos LEDs ESP32</h2>
+            <div class="led-visualization">
+                <div class="player1-leds">
+                    <h3>Player 1 (LEDs 1-8)</h3>
+                    <div class="led-strip">
+                        <div class="led" data-led="1"></div>
+                        <div class="led" data-led="2"></div>
+                        <div class="led" data-led="3"></div>
+                        <div class="led" data-led="4"></div>
+                        <div class="led" data-led="5"></div>
+                        <div class="led" data-led="6"></div>
+                        <div class="led" data-led="7"></div>
+                        <div class="led" data-led="8"></div>
+                    </div>
+                </div>
+                <div class="player2-leds">
+                    <h3>Player 2 (LEDs 9-16)</h3>
+                    <div class="led-strip">
+                        <div class="led" data-led="9"></div>
+                        <div class="led" data-led="10"></div>
+                        <div class="led" data-led="11"></div>
+                        <div class="led" data-led="12"></div>
+                        <div class="led" data-led="13"></div>
+                        <div class="led" data-led="14"></div>
+                        <div class="led" data-led="15"></div>
+                        <div class="led" data-led="16"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="websocket-client.js"></script>
+    <script src="quest-simulator.js"></script>
+    <script src="video-player.js"></script>
+    <script src="led-visualizer.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
