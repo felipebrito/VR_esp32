@@ -42,9 +42,15 @@ class Video360Player {
         
         // Integração com Quest Simulator
         if (window.questSimulator) {
-            window.questSimulator.onVideoPlay = () => this.play();
-            window.questSimulator.onVideoPause = () => this.pause();
-            window.questSimulator.onVideoStop = () => this.stop();
+            window.questSimulator.onVideoPlay = () => {
+                if (!this.isPlaying) this.play();
+            };
+            window.questSimulator.onVideoPause = () => {
+                if (this.isPlaying) this.pause();
+            };
+            window.questSimulator.onVideoStop = () => {
+                if (this.isLoaded) this.stop();
+            };
             window.questSimulator.onVideoProgress = (progress) => this.setProgress(progress);
         }
         
@@ -202,6 +208,11 @@ class Video360Player {
             this.updateTimeDisplay();
         });
         
+        this.video.addEventListener('canplay', () => {
+            this.log('Vídeo pronto para reprodução', 'success');
+            this.createVideoTexture();
+        });
+        
         this.video.addEventListener('timeupdate', () => {
             this.currentTime = this.video.currentTime;
             const progress = (this.currentTime / this.duration) * 100;
@@ -216,20 +227,6 @@ class Video360Player {
         this.video.src = videoURL;
         this.video.load();
         
-        // Criar textura do vídeo
-        this.videoTexture = new THREE.VideoTexture(this.video);
-        this.videoTexture.minFilter = THREE.LinearFilter;
-        this.videoTexture.magFilter = THREE.LinearFilter;
-        
-        // Aplicar textura à esfera se ela existir
-        if (this.sphere && this.sphere.material) {
-            this.sphere.material.map = this.videoTexture;
-            this.sphere.material.needsUpdate = true;
-        } else {
-            this.log('Erro: Esfera não foi criada corretamente', 'error');
-            return;
-        }
-        
         // Remover mensagem inicial
         const initialMessage = document.getElementById('initial-message');
         if (initialMessage) {
@@ -238,6 +235,31 @@ class Video360Player {
         
         this.isLoaded = true;
         this.log('Vídeo 360° pronto para reprodução', 'success');
+    }
+    
+    createVideoTexture() {
+        if (!this.video || !this.sphere) {
+            this.log('Erro: Vídeo ou esfera não disponível para criar textura', 'error');
+            return;
+        }
+        
+        try {
+            // Criar textura do vídeo
+            this.videoTexture = new THREE.VideoTexture(this.video);
+            this.videoTexture.minFilter = THREE.LinearFilter;
+            this.videoTexture.magFilter = THREE.LinearFilter;
+            
+            // Aplicar textura à esfera
+            if (this.sphere.material) {
+                this.sphere.material.map = this.videoTexture;
+                this.sphere.material.needsUpdate = true;
+                this.log('Textura de vídeo aplicada com sucesso', 'success');
+            } else {
+                this.log('Erro: Material da esfera não disponível', 'error');
+            }
+        } catch (error) {
+            this.log(`Erro ao criar textura de vídeo: ${error.message}`, 'error');
+        }
     }
     
     play() {
