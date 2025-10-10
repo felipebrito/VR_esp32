@@ -2,6 +2,11 @@
  * Player de Vídeo 360° com controles integrados
  * Suporta vídeos 360° e integração com ESP32
  */
+
+// Importar Three.js e OrbitControls
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
 class Video360Player {
     constructor() {
         this.video = null;
@@ -71,37 +76,49 @@ class Video360Player {
     initThreeJS() {
         const container = document.getElementById('video360');
         
-        // Scene
-        this.scene = new THREE.Scene();
+        if (!container) {
+            this.log('Erro: Container video360 não encontrado', 'error');
+            return;
+        }
         
-        // Camera
-        this.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-        this.camera.position.set(0, 0, 0);
-        
-        // Renderer
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
-        this.renderer.setSize(container.clientWidth, container.clientHeight);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        container.appendChild(this.renderer.domElement);
-        
-        // Controls
-        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
-        this.controls.enableDamping = true;
-        this.controls.dampingFactor = 0.05;
-        this.controls.enableZoom = true;
-        this.controls.enablePan = false;
-        
-        // Sphere para vídeo 360°
-        const geometry = new THREE.SphereGeometry(500, 60, 40);
-        geometry.scale(-1, 1, 1); // Inverter para vídeo 360°
-        
-        const material = new THREE.MeshBasicMaterial({
-            color: 0xffffff,
-            side: THREE.DoubleSide
-        });
-        
-        this.sphere = new THREE.Mesh(geometry, material);
-        this.scene.add(this.sphere);
+        try {
+            // Scene
+            this.scene = new THREE.Scene();
+            
+            // Camera
+            this.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            this.camera.position.set(0, 0, 0);
+            
+            // Renderer
+            this.renderer = new THREE.WebGLRenderer({ antialias: true });
+            this.renderer.setSize(container.clientWidth, container.clientHeight);
+            this.renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(this.renderer.domElement);
+            
+            // Controls
+            this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+            this.controls.enableDamping = true;
+            this.controls.dampingFactor = 0.05;
+            this.controls.enableZoom = true;
+            this.controls.enablePan = false;
+            
+            // Sphere para vídeo 360°
+            const geometry = new THREE.SphereGeometry(500, 60, 40);
+            geometry.scale(-1, 1, 1); // Inverter para vídeo 360°
+            
+            const material = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                side: THREE.DoubleSide
+            });
+            
+            this.sphere = new THREE.Mesh(geometry, material);
+            this.scene.add(this.sphere);
+            
+            this.log('Three.js inicializado com sucesso', 'success');
+        } catch (error) {
+            this.log(`Erro ao inicializar Three.js: ${error.message}`, 'error');
+            return;
+        }
         
         // Adicionar texto inicial
         this.showInitialMessage();
@@ -204,9 +221,14 @@ class Video360Player {
         this.videoTexture.minFilter = THREE.LinearFilter;
         this.videoTexture.magFilter = THREE.LinearFilter;
         
-        // Aplicar textura à esfera
-        this.sphere.material.map = this.videoTexture;
-        this.sphere.material.needsUpdate = true;
+        // Aplicar textura à esfera se ela existir
+        if (this.sphere && this.sphere.material) {
+            this.sphere.material.map = this.videoTexture;
+            this.sphere.material.needsUpdate = true;
+        } else {
+            this.log('Erro: Esfera não foi criada corretamente', 'error');
+            return;
+        }
         
         // Remover mensagem inicial
         const initialMessage = document.getElementById('initial-message');
