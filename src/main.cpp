@@ -229,6 +229,36 @@ void handleWebSocketMessage(uint8_t clientNum, char* message) {
     Serial.println("Player 2 playing - 5s progress animation");
     return;
   }
+  else if (msgStr == "off1") {
+    players[0].state = DISCONNECTED;
+    players[0].connected = false;
+    players[0].progress = 0.0;
+    players[0].lastUpdate = millis(); // Reset timer for orange blinking
+    Serial.println("Player 1 offline - orange blinking");
+    return;
+  }
+  else if (msgStr == "off2") {
+    players[1].state = DISCONNECTED;
+    players[1].connected = false;
+    players[1].progress = 0.0;
+    players[1].lastUpdate = millis(); // Reset timer for orange blinking
+    Serial.println("Player 2 offline - orange blinking");
+    return;
+  }
+  else if (msgStr == "pause1") {
+    if (players[0].state == PLAYING) {
+      players[0].state = PAUSED;
+      Serial.println("Player 1 paused - LEDs dimmed");
+    }
+    return;
+  }
+  else if (msgStr == "pause2") {
+    if (players[1].state == PLAYING) {
+      players[1].state = PAUSED;
+      Serial.println("Player 2 paused - LEDs dimmed");
+    }
+    return;
+  }
   
   // Try to parse as JSON
   StaticJsonDocument<200> doc;
@@ -575,9 +605,28 @@ void updateReadyBlinkLEDs() {
   unsigned long now = millis();
   bool blinkState = (now / READY_BLINK_INTERVAL) % 2;
   
+  // Clear all LEDs first
+  for (int i = 0; i < NUM_LEDS; i++) {
+    leds[i] = CRGB::Black;
+  }
+  
   if (blinkState) {
-    for (int i = 0; i < NUM_LEDS; i++) {
-      leds[i] = CRGB::Green;
+    // Player 1 ready (green blinking on LED 4 - middle of Player 1)
+    if (players[0].state == READY) {
+      leds[3] = CRGB::Green; // LED 4 (index 3)
+    }
+    // Player 1 offline (orange blinking on LED 4)
+    else if (players[0].state == DISCONNECTED) {
+      leds[3] = CRGB(255, 165, 0); // Orange
+    }
+    
+    // Player 2 ready (green blinking on LED 12 - middle of Player 2)
+    if (players[1].state == READY) {
+      leds[11] = CRGB::Green; // LED 12 (index 11)
+    }
+    // Player 2 offline (orange blinking on LED 12)
+    else if (players[1].state == DISCONNECTED) {
+      leds[11] = CRGB(255, 165, 0); // Orange
     }
   }
 }

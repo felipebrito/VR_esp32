@@ -356,15 +356,15 @@ class ESP32WebSocketClient {
     simulateHeadsetOff() {
         if (this.selectedPlayer === 'both') {
             this.log('Simulando: Headset removido (Ambos players)', 'info');
-            this.sendCommand('led1:0');
-            this.sendCommand('led2:0');
+            this.sendCommand('off1');
+            this.sendCommand('off2');
             this.updatePlayerStatus(1, 'headset', 'offline');
             this.updatePlayerStatus(2, 'headset', 'offline');
             this.updatePlayerStatus(1, 'player', 'disconnected');
             this.updatePlayerStatus(2, 'player', 'disconnected');
         } else {
             this.log(`Simulando: Headset removido (Player ${this.selectedPlayer})`, 'info');
-            this.sendCommand(`led${this.selectedPlayer}:0`);
+            this.sendCommand(`off${this.selectedPlayer}`);
             this.updatePlayerStatus(this.selectedPlayer, 'headset', 'offline');
             this.updatePlayerStatus(this.selectedPlayer, 'player', 'disconnected');
         }
