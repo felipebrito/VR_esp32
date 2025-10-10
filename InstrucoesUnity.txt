@@ -1,0 +1,267 @@
+Excelente pergunta! Vou explicar os eventos do Meta Quest/Unity que você precisa para implementar essa funcionalidade completa.
+
+## 🥽 Eventos do Meta Quest/Unity para Detecção de Status
+
+### **1. Eventos de Headset Wear Detection**
+
+```csharp
+using UnityEngine;
+using Oculus.Interaction;
+
+public class HeadsetStatusDetector : MonoBehaviour
+{
+    // Eventos principais do Meta Quest
+    void Start()
+    {
+        // Detectar quando o headset é colocado/removido
+        OVRManager.HMDMounted += OnHeadsetMounted;
+        OVRManager.HMDUnmounted += OnHeadsetUnmounted;
+        
+        // Detectar mudanças de foco da aplicação
+        Application.focusChanged += OnApplicationFocusChanged;
+        Application.pauseChanged += OnApplicationPauseChanged;
+        
+        // Detectar mudanças de conectividade
+        Application.backgroundLoadingPriorityChanged += OnBackgroundLoadingChanged;
+    }
+    
+    private void OnHeadsetMounted()
+    {
+        Debug.Log("Headset colocado - Usuário ONLINE");
+        SendToESP32("on1"); // ou "on2" dependendo do player
+    }
+    
+    private void OnHeadsetUnmounted()
+    {
+        Debug.Log("Headset removido - Usuário OFFLINE");
+        SendToESP32("off1"); // Desconectar player
+    }
+    
+    private void OnApplicationFocusChanged(bool hasFocus)
+    {
+        if (hasFocus)
+        {
+            Debug.Log("Aplicação em foco - Usuário ATIVO");
+            SendToESP32("on1");
+        }
+        else
+        {
+            Debug.Log("Aplicação fora de foco - Usuário INATIVO");
+            SendToESP32("pause1");
+        }
+    }
+}
+```
+
+### **2. Eventos de Conectividade e Status**
+
+```csharp
+public class QuestConnectivityManager : MonoBehaviour
+{
+    private WebSocketClient wsClient;
+    
+    void Start()
+    {
+        // Detectar mudanças de conectividade WiFi
+        NetworkReachability reachability = Application.internetReachability;
+        
+        // Monitorar status da bateria
+        InvokeRepeating("CheckBatteryStatus", 0f, 30f); // A cada 30 segundos
+        
+        // Monitorar temperatura do headset
+        InvokeRepeating("CheckThermalStatus", 0f, 10f); // A cada 10 segundos
+    }
+    
+    private void CheckBatteryStatus()
+    {
+        float batteryLevel = SystemInfo.batteryLevel;
+        if (batteryLevel < 0.1f) // Menos de 10%
+        {
+            Debug.Log("Bateria baixa - Modo econômico");
+            SendToESP32("lowbattery1");
+        }
+    }
+    
+    private void CheckThermalStatus()
+    {
+        // Verificar se o headset está superaquecendo
+        if (OVRManager.instance.isHmdPresent)
+        {
+            // Headset presente e funcionando
+            SendToESP32("on1");
+        }
+        else
+        {
+            // Headset não detectado
+            SendToESP32("off1");
+        }
+    }
+}
+```
+
+### **3. Sistema de Comunicação com ESP32**
+
+```csharp
+public class ESP32Communication : MonoBehaviour
+{
+    private WebSocket ws;
+    private string esp32IP = "192.168.1.100"; // IP do seu ESP32
+    
+    void Start()
+    {
+        ConnectToESP32();
+    }
+    
+    private void ConnectToESP32()
+    {
+        ws = new WebSocket($"ws://{esp32IP}/ws");
+        
+        ws.OnOpen += (sender, e) => {
+            Debug.Log("Conectado ao ESP32");
+            SendPlayerStatus("ready");
+        };
+        
+        ws.OnMessage += (sender, e) => {
+            HandleESP32Message(e.Data);
+        };
+        
+        ws.OnClose += (sender, e) => {
+            Debug.Log("Desconectado do ESP32");
+            // Tentar reconectar
+            Invoke("ConnectToESP32", 5f);
+        };
+        
+        ws.Connect();
+    }
+    
+    private void SendPlayerStatus(string status)
+    {
+        if (ws != null && ws.ReadyState == WebSocketState.Open)
+        {
+            ws.Send(status);
+            Debug.Log($"Enviado para ESP32: {status}");
+        }
+    }
+    
+    private void HandleESP32Message(string message)
+    {
+        Debug.Log($"Recebido do ESP32: {message}");
+        
+        // Processar comandos do ESP32
+        if (message.Contains("play"))
+        {
+            StartVideoPlayback();
+        }
+        else if (message.Contains("pause"))
+        {
+            PauseVideoPlayback();
+        }
+        else if (message.Contains("stop"))
+        {
+            StopVideoPlayback();
+        }
+    }
+}
+```
+
+### **4. Sistema de Progresso de Vídeo**
+
+```csharp
+public class VideoProgressManager : MonoBehaviour
+{
+    private VideoPlayer videoPlayer;
+    private bool isPlaying = false;
+    
+    void Update()
+    {
+        if (isPlaying && videoPlayer != null)
+        {
+            // Calcular progresso do vídeo (0-100%)
+            float progress = (float)(videoPlayer.time / videoPlayer.length) * 100f;
+            int progressInt = Mathf.RoundToInt(progress);
+            
+            // Enviar progresso para ESP32
+            SendProgressToESP32(progressInt);
+        }
+    }
+    
+    private void SendProgressToESP32(int progress)
+    {
+        if (ws != null && ws.ReadyState == WebSocketState.Open)
+        {
+            string message = $"led1:{progress}";
+            ws.Send(message);
+        }
+    }
+    
+    private void StartVideoPlayback()
+    {
+        isPlaying = true;
+        videoPlayer.Play();
+        Debug.Log("Vídeo iniciado");
+    }
+    
+    private void PauseVideoPlayback()
+    {
+        isPlaying = false;
+        videoPlayer.Pause();
+        Debug.Log("Vídeo pausado");
+    }
+    
+    private void StopVideoPlayback()
+    {
+        isPlaying = false;
+        videoPlayer.Stop();
+        SendToESP32("led1:0"); // Apagar LEDs
+        Debug.Log("Vídeo parado - Modo idle");
+    }
+}
+```
+
+## 🎯 **Fluxo Completo de Funcionamento**
+
+### **1. Detecção de Usuário Online:**
+```
+Headset colocado → OVRManager.HMDMounted → SendToESP32("on1") → LEDs piscam verde
+```
+
+### **2. Início de Sessão:**
+```
+Botão pressionado → ESP32 envia "play1" → Unity recebe → StartVideoPlayback()
+```
+
+### **3. Progresso do Vídeo:**
+```
+Vídeo rodando → Update() calcula progresso → SendProgressToESP32(progress) → LEDs acendem progressivamente
+```
+
+### **4. Pausa:**
+```
+Botão pressionado → ESP32 envia "pause1" → Unity recebe → PauseVideoPlayback() → LEDs ficam na posição atual
+```
+
+### **5. Stop/Idle:**
+```
+Botão long press → ESP32 envia "stop1" → Unity recebe → StopVideoPlayback() → LEDs apagam
+```
+
+## 📋 **Comandos ESP32 ↔ Unity**
+
+| Unity → ESP32 | ESP32 → Unity | Ação |
+|---------------|----------------|------|
+| `on1` | - | Player 1 online (LEDs piscam verde) |
+| `led1:25` | - | Progresso 25% (LEDs acendem) |
+| `led1:50` | - | Progresso 50% (LEDs acendem) |
+| - | `play1` | Iniciar vídeo |
+| - | `pause1` | Pausar vídeo |
+| - | `stop1` | Parar vídeo (modo idle) |
+
+## 🔧 **Implementação Recomendada**
+
+1. **Use `OVRManager.HMDMounted/Unmounted`** para detectar quando o usuário coloca/remove o headset
+2. **Use `Application.focusChanged`** para detectar quando a aplicação ganha/perde foco
+3. **Implemente WebSocket** para comunicação bidirecional com ESP32
+4. **Monitore progresso do vídeo** em tempo real e envie para ESP32
+5. **Processe comandos do ESP32** para controlar reprodução
+
+Essa implementação te dará controle total sobre o status do usuário e sincronização perfeita entre Unity e ESP32! 🚀

@@ -545,33 +545,70 @@ void updateProgressLEDs() {
     if (playTime < 6000) { // Only animate for first 6 seconds after play command
       float progress = min(1.0, playTime / 5000.0); // 5 seconds = 5000ms
       
-      int player1LEDs = (int)(progress * PLAYER1_LEDS);
-      for (int i = 0; i < player1LEDs; i++) {
+      // Progresso suave com luminosidade gradual
+      float totalLEDs = progress * PLAYER1_LEDS;
+      int fullLEDs = (int)totalLEDs;
+      float partialLED = totalLEDs - fullLEDs; // Parte fracionária do próximo LED
+      
+      // Acender LEDs completos
+      for (int i = 0; i < fullLEDs; i++) {
         leds[i] = CRGB::Blue;
+      }
+      
+      // Acender LED parcial com luminosidade proporcional
+      if (fullLEDs < PLAYER1_LEDS && partialLED > 0) {
+        int brightness = (int)(255 * partialLED);
+        leds[fullLEDs] = CRGB(0, 0, brightness); // Azul com luminosidade variável
       }
       
       // Update progress for display
       players[0].progress = progress;
     } else {
-      // Show current progress without animation
-      int player1LEDs = (int)(players[0].progress * PLAYER1_LEDS);
-      for (int i = 0; i < player1LEDs; i++) {
+      // Show current progress without animation - também com progresso suave
+      float totalLEDs = players[0].progress * PLAYER1_LEDS;
+      int fullLEDs = (int)totalLEDs;
+      float partialLED = totalLEDs - fullLEDs;
+      
+      // Acender LEDs completos
+      for (int i = 0; i < fullLEDs; i++) {
         leds[i] = CRGB::Blue;
+      }
+      
+      // Acender LED parcial com luminosidade proporcional
+      if (fullLEDs < PLAYER1_LEDS && partialLED > 0) {
+        int brightness = (int)(255 * partialLED);
+        leds[fullLEDs] = CRGB(0, 0, brightness);
       }
     }
   }
   else if (players[0].state == PAUSED) {
-    // Show paused state with dimmer blue LEDs
-    int player1LEDs = (int)(players[0].progress * PLAYER1_LEDS);
-    for (int i = 0; i < player1LEDs; i++) {
+    // Show paused state with dimmer blue LEDs - progresso suave
+    float totalLEDs = players[0].progress * PLAYER1_LEDS;
+    int fullLEDs = (int)totalLEDs;
+    float partialLED = totalLEDs - fullLEDs;
+    
+    for (int i = 0; i < fullLEDs; i++) {
       leds[i] = CRGB(0, 0, 64); // Dim blue for paused
+    }
+    
+    if (fullLEDs < PLAYER1_LEDS && partialLED > 0) {
+      int brightness = (int)(64 * partialLED);
+      leds[fullLEDs] = CRGB(0, 0, brightness);
     }
   }
   else if (players[0].state == PAUSED_BY_HEADSET) {
-    // Show paused by headset state with dimmer blue LEDs
-    int player1LEDs = (int)(players[0].progress * PLAYER1_LEDS);
-    for (int i = 0; i < player1LEDs; i++) {
+    // Show paused by headset state with dimmer blue LEDs - progresso suave
+    float totalLEDs = players[0].progress * PLAYER1_LEDS;
+    int fullLEDs = (int)totalLEDs;
+    float partialLED = totalLEDs - fullLEDs;
+    
+    for (int i = 0; i < fullLEDs; i++) {
       leds[i] = CRGB(0, 0, 64); // Dim blue for paused by headset
+    }
+    
+    if (fullLEDs < PLAYER1_LEDS && partialLED > 0) {
+      int brightness = (int)(64 * partialLED);
+      leds[fullLEDs] = CRGB(0, 0, brightness);
     }
   }
   
@@ -582,33 +619,70 @@ void updateProgressLEDs() {
     if (playTime < 6000) { // Only animate for first 6 seconds after play command
       float progress = min(1.0, playTime / 5000.0); // 5 seconds = 5000ms
       
-      int player2LEDs = (int)(progress * PLAYER2_LEDS);
-      for (int i = 0; i < player2LEDs; i++) {
+      // Progresso suave com luminosidade gradual
+      float totalLEDs = progress * PLAYER2_LEDS;
+      int fullLEDs = (int)totalLEDs;
+      float partialLED = totalLEDs - fullLEDs; // Parte fracionária do próximo LED
+      
+      // Acender LEDs completos
+      for (int i = 0; i < fullLEDs; i++) {
         leds[NUM_LEDS - 1 - i] = CRGB::Red;
+      }
+      
+      // Acender LED parcial com luminosidade proporcional
+      if (fullLEDs < PLAYER2_LEDS && partialLED > 0) {
+        int brightness = (int)(255 * partialLED);
+        leds[NUM_LEDS - 1 - fullLEDs] = CRGB(brightness, 0, 0); // Vermelho com luminosidade variável
       }
       
       // Update progress for display
       players[1].progress = progress;
     } else {
-      // Show current progress without animation
-      int player2LEDs = (int)(players[1].progress * PLAYER2_LEDS);
-      for (int i = 0; i < player2LEDs; i++) {
+      // Show current progress without animation - também com progresso suave
+      float totalLEDs = players[1].progress * PLAYER2_LEDS;
+      int fullLEDs = (int)totalLEDs;
+      float partialLED = totalLEDs - fullLEDs;
+      
+      // Acender LEDs completos
+      for (int i = 0; i < fullLEDs; i++) {
         leds[NUM_LEDS - 1 - i] = CRGB::Red;
+      }
+      
+      // Acender LED parcial com luminosidade proporcional
+      if (fullLEDs < PLAYER2_LEDS && partialLED > 0) {
+        int brightness = (int)(255 * partialLED);
+        leds[NUM_LEDS - 1 - fullLEDs] = CRGB(brightness, 0, 0);
       }
     }
   }
   else if (players[1].state == PAUSED) {
-    // Show paused state with dimmer red LEDs
-    int player2LEDs = (int)(players[1].progress * PLAYER2_LEDS);
-    for (int i = 0; i < player2LEDs; i++) {
+    // Show paused state with dimmer red LEDs - progresso suave
+    float totalLEDs = players[1].progress * PLAYER2_LEDS;
+    int fullLEDs = (int)totalLEDs;
+    float partialLED = totalLEDs - fullLEDs;
+    
+    for (int i = 0; i < fullLEDs; i++) {
       leds[NUM_LEDS - 1 - i] = CRGB(64, 0, 0); // Dim red for paused
+    }
+    
+    if (fullLEDs < PLAYER2_LEDS && partialLED > 0) {
+      int brightness = (int)(64 * partialLED);
+      leds[NUM_LEDS - 1 - fullLEDs] = CRGB(brightness, 0, 0);
     }
   }
   else if (players[1].state == PAUSED_BY_HEADSET) {
-    // Show paused by headset state with dimmer red LEDs
-    int player2LEDs = (int)(players[1].progress * PLAYER2_LEDS);
-    for (int i = 0; i < player2LEDs; i++) {
+    // Show paused by headset state with dimmer red LEDs - progresso suave
+    float totalLEDs = players[1].progress * PLAYER2_LEDS;
+    int fullLEDs = (int)totalLEDs;
+    float partialLED = totalLEDs - fullLEDs;
+    
+    for (int i = 0; i < fullLEDs; i++) {
       leds[NUM_LEDS - 1 - i] = CRGB(64, 0, 0); // Dim red for paused by headset
+    }
+    
+    if (fullLEDs < PLAYER2_LEDS && partialLED > 0) {
+      int brightness = (int)(64 * partialLED);
+      leds[NUM_LEDS - 1 - fullLEDs] = CRGB(brightness, 0, 0);
     }
   }
   
@@ -642,26 +716,26 @@ void updateReadyBlinkLEDs() {
     if (players[0].state == READY) {
       leds[3] = CRGB::Green; // LED 4 (index 3)
     }
-    // Player 1 paused by headset (orange blinking on LED 4)
+    // Player 1 paused by headset (purple blinking on LED 4)
     else if (players[0].state == PAUSED_BY_HEADSET) {
-      leds[3] = CRGB(255, 165, 0); // Orange
+      leds[3] = CRGB(128, 0, 128); // Purple
     }
-    // Player 1 offline (orange blinking on LED 4)
+    // Player 1 offline (purple blinking on LED 4)
     else if (players[0].state == DISCONNECTED) {
-      leds[3] = CRGB(255, 165, 0); // Orange
+      leds[3] = CRGB(128, 0, 128); // Purple
     }
     
     // Player 2 ready (green blinking on LED 12 - middle of Player 2)
     if (players[1].state == READY) {
       leds[11] = CRGB::Green; // LED 12 (index 11)
     }
-    // Player 2 paused by headset (orange blinking on LED 12)
+    // Player 2 paused by headset (purple blinking on LED 12)
     else if (players[1].state == PAUSED_BY_HEADSET) {
-      leds[11] = CRGB(255, 165, 0); // Orange
+      leds[11] = CRGB(128, 0, 128); // Purple
     }
-    // Player 2 offline (orange blinking on LED 12)
+    // Player 2 offline (purple blinking on LED 12)
     else if (players[1].state == DISCONNECTED) {
-      leds[11] = CRGB(255, 165, 0); // Orange
+      leds[11] = CRGB(128, 0, 128); // Purple
     }
   }
 }

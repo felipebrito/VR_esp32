@@ -580,8 +580,8 @@ body {
 }
 
 .led.offline {
-    background: #ff8800;
-    border-color: #e67e22;
+    background: #800080;
+    border-color: #6a0dad;
     animation: blink 1s infinite;
 }
 
