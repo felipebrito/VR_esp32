@@ -28,7 +28,8 @@ enum PlayerState {
   CONNECTED,
   READY,
   PLAYING,
-  PAUSED
+  PAUSED,
+  PAUSED_BY_HEADSET
 };
 
 struct Player {
@@ -200,11 +201,18 @@ void handleWebSocketMessage(uint8_t clientNum, char* message) {
       }
   
   if (msgStr == "on1") {
-    players[0].state = READY;
-    players[0].connected = true;
-    players[0].progress = 0.0;
-    players[0].lastUpdate = millis(); // Reset timer for blinking
-    Serial.println("Player 1 ready - green blinking");
+    if (players[0].state == PAUSED_BY_HEADSET) {
+      // Resume from where it was paused
+      players[0].state = PLAYING;
+      Serial.printf("Player 1 headset back on - resuming from %.1f%%\n", players[0].progress * 100);
+    } else {
+      // Normal ready state
+      players[0].state = READY;
+      players[0].connected = true;
+      players[0].progress = 0.0;
+      players[0].lastUpdate = millis(); // Reset timer for blinking
+      Serial.println("Player 1 ready - green blinking");
+    }
     return;
   }
   else if (msgStr == "play1") {
@@ -215,11 +223,18 @@ void handleWebSocketMessage(uint8_t clientNum, char* message) {
     return;
   }
   else if (msgStr == "on2") {
-    players[1].state = READY;
-    players[1].connected = true;
-    players[1].progress = 0.0;
-    players[1].lastUpdate = millis(); // Reset timer for blinking
-    Serial.println("Player 2 ready - green blinking");
+    if (players[1].state == PAUSED_BY_HEADSET) {
+      // Resume from where it was paused
+      players[1].state = PLAYING;
+      Serial.printf("Player 2 headset back on - resuming from %.1f%%\n", players[1].progress * 100);
+    } else {
+      // Normal ready state
+      players[1].state = READY;
+      players[1].connected = true;
+      players[1].progress = 0.0;
+      players[1].lastUpdate = millis(); // Reset timer for blinking
+      Serial.println("Player 2 ready - green blinking");
+    }
     return;
   }
   else if (msgStr == "play2") {
@@ -230,19 +245,17 @@ void handleWebSocketMessage(uint8_t clientNum, char* message) {
     return;
   }
   else if (msgStr == "off1") {
-    players[0].state = DISCONNECTED;
-    players[0].connected = false;
-    players[0].progress = 0.0;
-    players[0].lastUpdate = millis(); // Reset timer for orange blinking
-    Serial.println("Player 1 offline - orange blinking");
+    players[0].state = PAUSED_BY_HEADSET;
+    players[0].connected = true; // Still connected, just headset removed
+    // Keep progress and lastUpdate for resuming
+    Serial.println("Player 1 headset removed - paused by headset (orange blinking)");
     return;
   }
   else if (msgStr == "off2") {
-    players[1].state = DISCONNECTED;
-    players[1].connected = false;
-    players[1].progress = 0.0;
-    players[1].lastUpdate = millis(); // Reset timer for orange blinking
-    Serial.println("Player 2 offline - orange blinking");
+    players[1].state = PAUSED_BY_HEADSET;
+    players[1].connected = true; // Still connected, just headset removed
+    // Keep progress and lastUpdate for resuming
+    Serial.println("Player 2 headset removed - paused by headset (orange blinking)");
     return;
   }
   else if (msgStr == "pause1") {
@@ -554,6 +567,13 @@ void updateProgressLEDs() {
       leds[i] = CRGB(0, 0, 64); // Dim blue for paused
     }
   }
+  else if (players[0].state == PAUSED_BY_HEADSET) {
+    // Show paused by headset state with dimmer blue LEDs
+    int player1LEDs = (int)(players[0].progress * PLAYER1_LEDS);
+    for (int i = 0; i < player1LEDs; i++) {
+      leds[i] = CRGB(0, 0, 64); // Dim blue for paused by headset
+    }
+  }
   
   // Player 2 progress (LEDs 9-16, right to left)
   if (players[1].state == PLAYING) {
@@ -582,6 +602,13 @@ void updateProgressLEDs() {
     int player2LEDs = (int)(players[1].progress * PLAYER2_LEDS);
     for (int i = 0; i < player2LEDs; i++) {
       leds[NUM_LEDS - 1 - i] = CRGB(64, 0, 0); // Dim red for paused
+    }
+  }
+  else if (players[1].state == PAUSED_BY_HEADSET) {
+    // Show paused by headset state with dimmer red LEDs
+    int player2LEDs = (int)(players[1].progress * PLAYER2_LEDS);
+    for (int i = 0; i < player2LEDs; i++) {
+      leds[NUM_LEDS - 1 - i] = CRGB(64, 0, 0); // Dim red for paused by headset
     }
   }
   
@@ -615,6 +642,10 @@ void updateReadyBlinkLEDs() {
     if (players[0].state == READY) {
       leds[3] = CRGB::Green; // LED 4 (index 3)
     }
+    // Player 1 paused by headset (orange blinking on LED 4)
+    else if (players[0].state == PAUSED_BY_HEADSET) {
+      leds[3] = CRGB(255, 165, 0); // Orange
+    }
     // Player 1 offline (orange blinking on LED 4)
     else if (players[0].state == DISCONNECTED) {
       leds[3] = CRGB(255, 165, 0); // Orange
@@ -623,6 +654,10 @@ void updateReadyBlinkLEDs() {
     // Player 2 ready (green blinking on LED 12 - middle of Player 2)
     if (players[1].state == READY) {
       leds[11] = CRGB::Green; // LED 12 (index 11)
+    }
+    // Player 2 paused by headset (orange blinking on LED 12)
+    else if (players[1].state == PAUSED_BY_HEADSET) {
+      leds[11] = CRGB(255, 165, 0); // Orange
     }
     // Player 2 offline (orange blinking on LED 12)
     else if (players[1].state == DISCONNECTED) {
