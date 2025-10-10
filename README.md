@@ -2,15 +2,16 @@
 
 A PlatformIO-based ESP32 project that controls 16 WS2812B LEDs and acts as a WebSocket server for VR headset communication, with two buttons for playback control.
 
-## Features
+## ✨ Features
 
 - **16 WS2812B LED Control**: Player 1 (LEDs 1-8) and Player 2 (LEDs 9-16)
-- **WebSocket Server**: Communication with VR headsets
-- **Button Controls**: Play/Pause and Effect Change/Stop
-- **Independent Players**: Each player can operate independently
-- **Progress Visualization**: Bidirectional LED progress bars
+- **WebSocket Server**: Real-time communication with VR headsets/APARATO
+- **Button Controls**: Play/Pause/Stop/Reset for each player independently
+- **Progress Visualization**: Bidirectional LED progress bars (0-100%)
+- **Direct LED Control**: Commands `led1:X` and `led2:X` for precise control
 - **Multiple LED Effects**: Rainbow, pulse, chase, and more
-- **Python Simulator**: Test client for development
+- **Python Simulators**: Multiple test clients for development
+- **Fluid Animations**: Smooth LED transitions without flickering
 
 ## Hardware Setup
 
@@ -102,18 +103,27 @@ LED 1 → LED 8        LED 16 ← LED 9
 
 ### Button Controls
 
-- **Button 1 (D4)**: 
-  - Short press: Toggle play/pause for both players
-  - Works independently for each player
+- **Button 1 (D4) - Player 1 Control**: 
+  - Short press: Play/Pause/Resume Player 1
+  - Long press (>1s): Stop all players and turn off LEDs
 
-- **Button 2 (D5)**:
-  - Short press: Cycle through LED effects
-  - Long press (>1s): Stop all players
+- **Button 2 (D5) - Player 2 Control**:
+  - Short press: Play/Pause/Resume Player 2
+  - Long press (>1s): Reset all players and turn off LEDs
 
 ### WebSocket Protocol
 
-#### Messages from VR Headset to ESP32:
+#### Commands from VR Headset/APARATO to ESP32:
 
+**Simple String Commands:**
+- `on1` - Player 1 ready (green blinking)
+- `play1` - Player 1 starts 5-second animation
+- `on2` - Player 2 ready (green blinking)  
+- `play2` - Player 2 starts 5-second animation
+- `led1:X` - Set Player 1 progress to X% (0-100)
+- `led2:X` - Set Player 2 progress to X% (0-100)
+
+**JSON Commands (Legacy Support):**
 ```json
 // Player ready
 {"player": 1, "status": "ready"}
@@ -128,21 +138,33 @@ LED 1 → LED 8        LED 16 ← LED 9
 {"player": 1, "status": "stopped"}
 ```
 
-#### Messages from ESP32 to VR Headset:
+#### Player States:
+- **DISCONNECTED**: Player not connected
+- **CONNECTED**: Player connected but not ready
+- **READY**: Player ready (green blinking LEDs)
+- **PLAYING**: Player actively playing (progress LEDs)
+- **PAUSED**: Player paused (dimmed progress LEDs)
 
-```json
-// Play command
-{"command": "play", "player": 1}
+### Python Simulators
 
-// Pause command
-{"command": "pause", "player": 1}
+**Available Test Scripts:**
 
-// Stop command
-{"command": "stop", "player": 1}
-```
+1. **`simulator.py`** - Interactive manual testing
+   ```bash
+   python simulator.py <ESP32_IP> <PLAYER_ID>
+   ```
 
-### Python Simulator Commands
+2. **`aparato_test.py`** - APARATO-specific commands
+   ```bash
+   python aparato_test.py <ESP32_IP>
+   ```
 
+3. **`led_control_test.py`** - Direct LED control testing
+   ```bash
+   python led_control_test.py <ESP32_IP>
+   ```
+
+**Interactive Commands:**
 - `r` - Send ready status
 - `p` - Start playback simulation
 - `s` - Stop playback
@@ -164,7 +186,7 @@ LED 1 → LED 8        LED 16 ← LED 9
 
 1. **LEDs not working**:
    - Check power supply (5V, adequate current)
-   - Verify GPIO 13 connection
+   - Verify GPIO 2 (D2) connection
    - Check ground connections
 
 2. **Buttons not responding**:
@@ -194,24 +216,15 @@ Player 1 is ready
 
 ## Configuration
 
-### WiFi Settings
-
-Edit `main.cpp` to change WiFi credentials:
-
-```cpp
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
-```
-
 ### LED Settings
 
 Modify LED configuration in `main.cpp`:
 
 ```cpp
-#define LED_PIN 2           // Change LED data pin
-#define NUM_LEDS 16         // Change number of LEDs
-#define PLAYER1_LEDS 8      // Change player 1 LED count
-#define PLAYER2_LEDS 8      // Change player 2 LED count
+#define LED_PIN 2           // LED data pin (GPIO 2)
+#define NUM_LEDS 16         // Total number of LEDs
+#define PLAYER1_LEDS 8      // Player 1 LED count (LEDs 1-8)
+#define PLAYER2_LEDS 8      // Player 2 LED count (LEDs 9-16)
 ```
 
 ### Button Settings
@@ -219,8 +232,17 @@ Modify LED configuration in `main.cpp`:
 Change button pins in `main.cpp`:
 
 ```cpp
-#define BUTTON_PLAY_PAUSE 4  // Change play/pause button pin
-#define BUTTON_EFFECT_STOP 5 // Change effect/stop button pin
+#define BUTTON_PLAY_PAUSE 4  // Player 1 control button (GPIO 4)
+#define BUTTON_EFFECT_STOP 5 // Player 2 control button (GPIO 5)
+```
+
+### WiFi Settings
+
+Edit WiFi credentials in `main.cpp`:
+
+```cpp
+const char* ssid = "VIVOFIBRA-WIFI6-2D81";
+const char* password = "xgsxJmdzjFNro5q";
 ```
 
 ## Development
@@ -229,13 +251,16 @@ Change button pins in `main.cpp`:
 
 ```
 BIJARI_VR/
-├── platformio.ini          # PlatformIO configuration
+├── platformio.ini              # PlatformIO configuration
 ├── src/
-│   └── main.cpp             # ESP32 firmware
+│   └── main.cpp                 # ESP32 firmware
 ├── python_client/
-│   ├── simulator.py         # Python WebSocket client
-│   └── requirements.txt     # Python dependencies
-└── README.md                # This file
+│   ├── simulator.py             # Interactive WebSocket client
+│   ├── aparato_test.py          # APARATO-specific testing
+│   ├── led_control_test.py      # Direct LED control testing
+│   └── requirements.txt         # Python dependencies
+├── .gitignore                   # Git ignore file
+└── README.md                    # This file
 ```
 
 ### Adding New Features
