@@ -72,12 +72,15 @@ class ESP32WebSocketClient {
         
         const url = `ws://${ip}/ws`;
         this.log(`Tentando conectar ao ESP32: ${url}`, 'info');
+        console.log('[DEBUG] Conectando ao WebSocket:', url);
         
         try {
             this.ws = new WebSocket(url);
             this.setupWebSocketEvents();
+            this.log('WebSocket criado com sucesso', 'info');
         } catch (error) {
             this.log(`Erro ao criar WebSocket: ${error.message}`, 'error');
+            console.error('[DEBUG] Erro ao criar WebSocket:', error);
         }
     }
     
@@ -87,11 +90,18 @@ class ESP32WebSocketClient {
             this.reconnectAttempts = 0;
             this.updateConnectionStatus(true);
             this.log('Conectado ao ESP32!', 'success');
+            
+            // Aguardar um pouco antes de enviar o status "ready"
+            setTimeout(() => {
+                this.sendPlayerStatus('ready');
+            }, 100);
+            
             this.triggerCallbacks('onConnect', event);
         };
         
         this.ws.onmessage = (event) => {
-            this.log(`Recebido do ESP32: ${event.data}`, 'info');
+            this.log(`[DEBUG] Recebido do ESP32: ${event.data}`, 'info');
+            console.log('[DEBUG] Mensagem completa:', event.data);
             this.handleESP32Message(event.data);
             this.triggerCallbacks('onMessage', event);
         };
@@ -99,7 +109,8 @@ class ESP32WebSocketClient {
         this.ws.onclose = (event) => {
             this.isConnected = false;
             this.updateConnectionStatus(false);
-            this.log('Desconectado do ESP32', 'warning');
+            this.log(`Desconectado do ESP32 - Código: ${event.code}, Motivo: ${event.reason}`, 'warning');
+            console.log('[DEBUG] WebSocket fechado:', event);
             this.triggerCallbacks('onDisconnect', event);
             
             // Tentar reconectar automaticamente
@@ -114,6 +125,7 @@ class ESP32WebSocketClient {
         
         this.ws.onerror = (error) => {
             this.log(`Erro WebSocket: ${error}`, 'error');
+            console.error('[DEBUG] Erro WebSocket:', error);
             this.triggerCallbacks('onError', error);
         };
     }
@@ -267,18 +279,60 @@ class ESP32WebSocketClient {
         }
     }
     
+    sendPlayerStatus(status) {
+        if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
+            const message = JSON.stringify({
+                player: 1, // Player 1 por padrão
+                status: status
+            });
+            this.ws.send(message);
+            this.log(`Enviado status '${status}' para ESP32`, 'info');
+        } else {
+            this.log(`Não foi possível enviar status '${status}' - WebSocket não está pronto`, 'warning');
+        }
+    }
+    
     handleESP32Message(message) {
         // Processar mensagens recebidas do ESP32
-        if (message.includes('play')) {
-            this.log('ESP32 solicitou PLAY', 'info');
-            // Aqui você pode integrar com o player de vídeo
-            this.triggerCallbacks('onPlayCommand', message);
-        } else if (message.includes('pause')) {
-            this.log('ESP32 solicitou PAUSE', 'info');
-            this.triggerCallbacks('onPauseCommand', message);
-        } else if (message.includes('stop')) {
-            this.log('ESP32 solicitou STOP', 'info');
-            this.triggerCallbacks('onStopCommand', message);
+        console.log('[DEBUG] Processando mensagem:', message);
+        this.log(`[DEBUG] Processando mensagem: ${message}`, 'info');
+        
+        try {
+            // Tentar parsear como JSON primeiro
+            const data = JSON.parse(message);
+            const command = data.command;
+            const player = data.player;
+            
+            this.log(`[DEBUG] JSON parseado - Comando: ${command}, Player: ${player}`, 'info');
+            console.log('[DEBUG] JSON parseado:', data);
+            
+            if (command === 'play') {
+                this.log('ESP32 solicitou PLAY via JSON', 'success');
+                this.triggerCallbacks('onPlayCommand', data);
+            } else if (command === 'pause') {
+                this.log('ESP32 solicitou PAUSE via JSON', 'success');
+                this.triggerCallbacks('onPauseCommand', data);
+            } else if (command === 'stop') {
+                this.log('ESP32 solicitou STOP via JSON', 'success');
+                this.triggerCallbacks('onStopCommand', data);
+            } else {
+                this.log(`[DEBUG] Comando desconhecido: ${command}`, 'warning');
+            }
+        } catch (e) {
+            this.log(`[DEBUG] Não é JSON, processando como string: ${e.message}`, 'info');
+            // Se não for JSON, processar como string
+            if (message.includes('play')) {
+                this.log('ESP32 solicitou PLAY via string', 'success');
+                this.triggerCallbacks('onPlayCommand', message);
+            } else if (message.includes('pause')) {
+                this.log('ESP32 solicitou PAUSE via string', 'success');
+                this.triggerCallbacks('onPauseCommand', message);
+            } else if (message.includes('stop')) {
+                this.log('ESP32 solicitou STOP via string', 'success');
+                this.triggerCallbacks('onStopCommand', message);
+            } else {
+                this.log(`[DEBUG] Mensagem não reconhecida: ${message}`, 'warning');
+            }
         }
     }
     
@@ -329,14 +383,22 @@ class ESP32WebSocketClient {
     
     // Sistema de callbacks para integração com outros módulos
     on(event, callback) {
-        if (this.callbacks[event]) {
-            this.callbacks[event].push(callback);
+        console.log(`[DEBUG] Registrando callback para evento: ${event}`);
+        if (!this.callbacks[event]) {
+            this.callbacks[event] = [];
         }
+        this.callbacks[event].push(callback);
+        console.log(`[DEBUG] Callback registrado. Total para ${event}: ${this.callbacks[event].length}`);
     }
     
     triggerCallbacks(event, data) {
+        console.log(`[DEBUG] triggerCallbacks chamado para evento: ${event}`);
+        console.log(`[DEBUG] Callbacks disponíveis:`, Object.keys(this.callbacks));
         if (this.callbacks[event]) {
+            console.log(`[DEBUG] Executando ${this.callbacks[event].length} callbacks para ${event}`);
             this.callbacks[event].forEach(callback => callback(data));
+        } else {
+            console.log(`[DEBUG] Nenhum callback registrado para evento: ${event}`);
         }
     }
     

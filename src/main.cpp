@@ -11,12 +11,29 @@
 #define PLAYER1_LEDS 8
 #define PLAYER2_LEDS 8
 
+// Button Configuration
+const unsigned long DEBOUNCE_DELAY = 50;
+const unsigned long LONG_PRESS_TIME = 1000;
+
 // WiFi Configuration
 const char* ssid = "VIVOFIBRA-WIFI6-2D81";
 const char* password = "xgsxJmdzjFNro5q";
 
 // LED Array
 CRGB leds[NUM_LEDS];
+
+// Button State Structure
+struct ButtonState {
+  bool pressed = false;
+  bool lastPressed = false;
+  unsigned long lastDebounceTime = 0;
+  unsigned long pressTime = 0;
+  bool longPressDetected = false;
+};
+
+// Button States
+ButtonState buttonPlayPause;
+ButtonState buttonEffectStop;
 
 // WebSocket Server
 AsyncWebServer server(80);
@@ -45,17 +62,6 @@ Player players[2] = {
   {DISCONNECTED, false, 0.0, 0, nullptr}
 };
 
-// Button States
-struct ButtonState {
-  bool pressed;
-  bool lastPressed;
-  unsigned long pressTime;
-  unsigned long lastDebounceTime;
-  bool longPressDetected;
-};
-
-ButtonState buttonPlayPause = {false, false, 0, 0, false};
-ButtonState buttonEffectStop = {false, false, 0, 0, false};
 
 // LED Effects
 enum LEDEffect {
@@ -72,8 +78,6 @@ unsigned long lastEffectUpdate = 0;
 int effectStep = 0;
 
 // Animation Timing
-const unsigned long DEBOUNCE_DELAY = 50;
-const unsigned long LONG_PRESS_TIME = 1000;
 const unsigned long READY_BLINK_INTERVAL = 500;
 const unsigned long EFFECT_UPDATE_INTERVAL = 100;
 
@@ -373,78 +377,107 @@ void handlePlayerDisconnect(uint8_t clientNum) {
 }
 
 void sendCommandToPlayer(int playerId, String command) {
+  Serial.print("SENDCMD:");
   int playerIndex = playerId - 1;
-  if (players[playerIndex].connected && players[playerIndex].client) {
+  Serial.printf("DEBUG: Tentando enviar comando '%s' para player %d\n", command.c_str(), playerId);
+  Serial.printf("DEBUG: Player %d - connected: %s, client: %s\n", playerId, 
+                players[playerIndex].connected ? "true" : "false",
+                players[playerIndex].client ? "true" : "false");
+  
+  // Enviar comando se houver pelo menos um cliente conectado
+  if (ws.getClients().size() > 0) {
     StaticJsonDocument<100> doc;
     doc["command"] = command;
     doc["player"] = playerId;
     
     String message;
     serializeJson(doc, message);
-    ws.text(players[playerIndex].client->id(), message);
-    Serial.printf("Sent command '%s' to player %d\n", command.c_str(), playerId);
+    
+    // Enviar para todos os clientes conectados
+    for (auto& client : ws.getClients()) {
+      ws.text(client.id(), message);
+    }
+    Serial.printf("Sent command '%s' to player %d (broadcast to %d clients)\n", command.c_str(), playerId, ws.getClients().size());
+  } else {
+    Serial.printf("ERRO: Nenhum cliente WebSocket conectado\n");
   }
 }
 
 void handleButtons() {
   handleButton(BUTTON_PLAY_PAUSE, &buttonPlayPause, []() {
     // Short press: toggle play/pause for both players
+    Serial.println("=== BUTTON 1 PRESSED ===");
     Serial.println("Button 1 pressed - toggling play/pause");
     for (int i = 0; i < 2; i++) {
       if (players[i].state == PLAYING) {
         players[i].state = PAUSED;
+        sendCommandToPlayer(i + 1, "pause");
         Serial.printf("Player %d paused\n", i + 1);
       } else if (players[i].state == PAUSED) {
         // Resume from where it was paused
         players[i].state = PLAYING;
         players[i].lastUpdate = millis() - (players[i].progress * 5000); // Adjust timer to continue from paused position
+        sendCommandToPlayer(i + 1, "play");
         Serial.printf("Player %d resumed\n", i + 1);
       } else if (players[i].state == READY) {
         // Start new playback
         players[i].state = PLAYING;
         players[i].progress = 0.0;
         players[i].lastUpdate = millis();
+        sendCommandToPlayer(i + 1, "play");
         Serial.printf("Player %d started\n", i + 1);
       }
     }
+    Serial.println("=== BUTTON 1 PROCESSED ===");
   }, []() {
     // Long press: stop all players and turn off LEDs
+    Serial.println("=== BUTTON 1 LONG PRESS ===");
     Serial.println("Button 1 long press - stopping all players");
     for (int i = 0; i < 2; i++) {
       players[i].state = DISCONNECTED;
       players[i].connected = false;
       players[i].progress = 0.0;
+      sendCommandToPlayer(i + 1, "stop");
     }
     Serial.println("All players stopped and LEDs turned off");
+    Serial.println("=== BUTTON 1 LONG PRESS PROCESSED ===");
   });
   
   handleButton(BUTTON_EFFECT_STOP, &buttonEffectStop, []() {
     // Short press: control Player 2 (play/pause)
+    Serial.println("=== BUTTON 2 PRESSED ===");
     Serial.println("Button 2 pressed - controlling Player 2");
     if (players[1].state == PLAYING) {
       players[1].state = PAUSED;
+      sendCommandToPlayer(2, "pause");
       Serial.println("Player 2 paused");
     } else if (players[1].state == PAUSED) {
       // Resume from where it was paused
       players[1].state = PLAYING;
       players[1].lastUpdate = millis() - (players[1].progress * 5000);
+      sendCommandToPlayer(2, "play");
       Serial.println("Player 2 resumed");
     } else if (players[1].state == READY) {
       // Start new playback
       players[1].state = PLAYING;
       players[1].progress = 0.0;
       players[1].lastUpdate = millis();
+      sendCommandToPlayer(2, "play");
       Serial.println("Player 2 started");
     }
+    Serial.println("=== BUTTON 2 PROCESSED ===");
   }, []() {
     // Long press: reset all players and turn off LEDs
+    Serial.println("=== BUTTON 2 LONG PRESS ===");
     Serial.println("Button 2 long press - resetting all players");
     for (int i = 0; i < 2; i++) {
       players[i].state = DISCONNECTED;
       players[i].connected = false;
       players[i].progress = 0.0;
+      sendCommandToPlayer(i + 1, "stop");
     }
     Serial.println("All players reset and LEDs turned off");
+    Serial.println("=== BUTTON 2 LONG PRESS PROCESSED ===");
   });
 }
 

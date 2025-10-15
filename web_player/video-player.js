@@ -40,6 +40,10 @@ class Video360Player {
         const progressSlider = document.getElementById('progressSlider');
         progressSlider.addEventListener('input', (e) => this.seekTo(e.target.value));
         
+        // Controles de navegação 360°
+        document.getElementById('centerView').addEventListener('click', () => this.centerView());
+        document.getElementById('resetView').addEventListener('click', () => this.resetView());
+        
         // Integração com Quest Simulator
         if (window.questSimulator) {
             window.questSimulator.onVideoPlay = () => {
@@ -91,9 +95,9 @@ class Video360Player {
             // Scene
             this.scene = new THREE.Scene();
             
-            // Camera
+            // Camera - posicionada fora da esfera para ver o vídeo 360°
             this.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-            this.camera.position.set(0, 0, 0);
+            this.camera.position.set(0, 0, 600); // Fora da esfera
             
             // Renderer
             this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -101,26 +105,57 @@ class Video360Player {
             this.renderer.setPixelRatio(window.devicePixelRatio);
             container.appendChild(this.renderer.domElement);
             
-            // Controls
+            // Controls para navegação 360° dentro da esfera
             this.controls = new OrbitControls(this.camera, this.renderer.domElement);
             this.controls.enableDamping = true;
             this.controls.dampingFactor = 0.05;
-            this.controls.enableZoom = true;
-            this.controls.enablePan = false;
+            this.controls.enableZoom = false; // Desabilitar zoom para 360°
+            this.controls.enablePan = false; // Desabilitar pan para 360°
+            this.controls.enableRotate = true; // Habilitar rotação
+            this.controls.rotateSpeed = 1.0;
+            this.controls.mouseButtons = {
+                LEFT: THREE.MOUSE.ROTATE,
+                MIDDLE: THREE.MOUSE.DOLLY,
+                RIGHT: THREE.MOUSE.ROTATE
+            };
             
-            // Sphere para vídeo 360°
+            // Configurar para navegação 360° completa
+            this.controls.minPolarAngle = 0;
+            this.controls.maxPolarAngle = Math.PI;
+            this.controls.minAzimuthAngle = -Infinity;
+            this.controls.maxAzimuthAngle = Infinity;
+            
+            // Configurar target para rotação ao redor do centro
+            this.controls.target.set(0, 0, 0);
+            
+            // Configurar para manter a câmera no centro da esfera
+            this.controls.enableKeys = false; // Desabilitar controles de teclado
+            this.controls.screenSpacePanning = false;
+            
+            // Adicionar listener para atualizar display de rotação
+            this.controls.addEventListener('change', () => this.updateRotationDisplay());
+            
+            // Sphere para vídeo 360° - versão simples que funciona
             const geometry = new THREE.SphereGeometry(500, 60, 40);
-            geometry.scale(-1, 1, 1); // Inverter para vídeo 360°
+            // Esfera normal
+            geometry.scale(1, 1, 1);
             
             const material = new THREE.MeshBasicMaterial({
                 color: 0xffffff,
-                side: THREE.DoubleSide
+                side: THREE.DoubleSide, // Ambos os lados
+                transparent: false,
+                opacity: 1.0,
+                wireframe: false
             });
             
             this.sphere = new THREE.Mesh(geometry, material);
             this.scene.add(this.sphere);
             
+            // Esfera de teste removida - sistema funcionando
+            
             this.log('Three.js inicializado com sucesso', 'success');
+            this.log(`Câmera posição: ${this.camera.position.x}, ${this.camera.position.y}, ${this.camera.position.z}`, 'info');
+            this.log(`Esfera criada com raio 500`, 'info');
         } catch (error) {
             this.log(`Erro ao inicializar Three.js: ${error.message}`, 'error');
             return;
@@ -248,12 +283,16 @@ class Video360Player {
             this.videoTexture = new THREE.VideoTexture(this.video);
             this.videoTexture.minFilter = THREE.LinearFilter;
             this.videoTexture.magFilter = THREE.LinearFilter;
+            this.videoTexture.wrapS = THREE.RepeatWrapping;
+            this.videoTexture.wrapT = THREE.RepeatWrapping;
+            // Inverter a textura para corrigir a orientação
+            this.videoTexture.flipY = true;
             
             // Aplicar textura à esfera
             if (this.sphere.material) {
                 this.sphere.material.map = this.videoTexture;
                 this.sphere.material.needsUpdate = true;
-                this.log('Textura de vídeo aplicada com sucesso', 'success');
+                this.log('Textura de vídeo aplicada com sucesso na esfera', 'success');
             } else {
                 this.log('Erro: Material da esfera não disponível', 'error');
             }
@@ -413,6 +452,53 @@ class Video360Player {
         } else {
             console.log(`[Video Player] ${message}`);
         }
+    }
+    
+    // Funções de navegação 360°
+    updateRotationDisplay() {
+        if (!this.controls) return;
+        
+        const rotation = this.controls.getAzimuthalAngle();
+        const tilt = this.controls.getPolarAngle();
+        
+        // Converter para graus
+        const rotationDegrees = Math.round((rotation * 180) / Math.PI);
+        const tiltDegrees = Math.round((tilt * 180) / Math.PI);
+        
+        // Atualizar display
+        const rotationDisplay = document.getElementById('rotationDisplay');
+        const tiltDisplay = document.getElementById('tiltDisplay');
+        
+        if (rotationDisplay) {
+            rotationDisplay.textContent = `${rotationDegrees}°`;
+        }
+        
+        if (tiltDisplay) {
+            tiltDisplay.textContent = `${tiltDegrees}°`;
+        }
+    }
+    
+    centerView() {
+        if (!this.controls) return;
+        
+        this.log('Centralizando visualização', 'info');
+        
+        // Resetar para posição central
+        this.controls.reset();
+        this.updateRotationDisplay();
+    }
+    
+    resetView() {
+        if (!this.controls) return;
+        
+        this.log('Resetando visualização', 'info');
+        
+        // Resetar para posição inicial (centro da esfera)
+        this.controls.reset();
+        this.camera.position.set(0, 0, 0);
+        this.controls.target.set(0, 0, 0);
+        this.controls.update();
+        this.updateRotationDisplay();
     }
     
     // Método para carregar vídeo de URL

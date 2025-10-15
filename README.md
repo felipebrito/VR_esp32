@@ -10,8 +10,11 @@ A PlatformIO-based ESP32 project that controls 16 WS2812B LEDs and acts as a Web
 - **Progress Visualization**: Bidirectional LED progress bars (0-100%)
 - **Direct LED Control**: Commands `led1:X` and `led2:X` for precise control
 - **Multiple LED Effects**: Rainbow, pulse, chase, and more
-- **Python Simulators**: Multiple test clients for development
+- **Web-based Testing**: Complete web interface for testing
 - **Fluid Animations**: Smooth LED transitions without flickering
+- **360° Video Player**: Web-based VR video player with Three.js
+- **360° Navigation**: Drag to rotate inside concave sphere, real-time degree display
+- **Meta Quest Simulation**: Complete VR headset event simulation
 
 ## Hardware Setup
 
@@ -50,7 +53,7 @@ LED 1 → LED 8        LED 16 ← LED 9
 ### Prerequisites
 
 - [PlatformIO](https://platformio.org/) installed
-- Python 3.x (for simulator)
+- Modern web browser (for testing)
 - ESP32 development board
 - WS2812B LED strip (16 LEDs)
 
@@ -77,17 +80,17 @@ LED 1 → LED 8        LED 16 ← LED 9
    pio device monitor
    ```
 
-### Python Simulator Setup
+### Web Player Setup
 
-1. **Install Dependencies**
+1. **Start Local Server**
    ```bash
-   cd python_client
-   pip install -r requirements.txt
+   cd web_player
+   python -m http.server 8000
    ```
 
-2. **Run Simulator**
-   ```bash
-   python simulator.py
+2. **Open in Browser**
+   ```
+   http://localhost:8000
    ```
 
 ## Usage
@@ -145,24 +148,15 @@ LED 1 → LED 8        LED 16 ← LED 9
 - **PLAYING**: Player actively playing (progress LEDs)
 - **PAUSED**: Player paused (dimmed progress LEDs)
 
-### Python Simulators
+### Web Interface Testing
 
-**Available Test Scripts:**
+**Complete VR Testing Environment:**
 
-1. **`simulator.py`** - Interactive manual testing
-   ```bash
-   python simulator.py <ESP32_IP> <PLAYER_ID>
-   ```
-
-2. **`aparato_test.py`** - APARATO-specific commands
-   ```bash
-   python aparato_test.py <ESP32_IP>
-   ```
-
-3. **`led_control_test.py`** - Direct LED control testing
-   ```bash
-   python led_control_test.py <ESP32_IP>
-   ```
+1. **Connect to ESP32**: Enter ESP32 IP address (default: 192.168.15.3)
+2. **Load Video**: Upload or select 360° video file
+3. **Test Controls**: Use physical buttons on ESP32 or web interface
+4. **Monitor LEDs**: Real-time LED visualization
+5. **360° Navigation**: Drag to rotate, view degrees, center/reset
 
 ### 🌐 Web Player Simulator
 
@@ -174,6 +168,21 @@ cd web_player
 python -m http.server 8000
 # Access: http://localhost:8000
 ```
+
+### 🎥 Arquivo de Vídeo Principal
+
+**Pierre_Final [HighRes]-001.mov**
+- **Localização**: Raiz do projeto (não versionado no Git)
+- **Tamanho**: ~2.9GB
+- **Uso**: Vídeo principal para teste do sistema VR
+- **Formato**: MOV (QuickTime)
+
+**Como adicionar:**
+1. Copie `Pierre_Final [HighRes]-001.mov` para a raiz do projeto
+2. Abra o player web e carregue o vídeo
+3. Teste a sincronização com LEDs
+
+**Nota**: O arquivo está no `.gitignore` devido ao tamanho. Mantenha-o localmente para desenvolvimento.
 
 **Features:**
 - **Meta Quest Event Simulation**: Headset ON/OFF, App Focus, Player States
@@ -217,10 +226,10 @@ python -m http.server 8000
    - Check ESP32 IP address
    - Ensure firewall allows port 80
 
-4. **Python simulator errors**:
-   - Install required packages: `pip install websocket-client`
-   - Check ESP32 IP address
+4. **Web interface not connecting**:
+   - Check ESP32 IP address in browser
    - Verify WebSocket server is running
+   - Check browser console for errors
 
 ### Serial Monitor Output
 
@@ -273,12 +282,7 @@ BIJARI_VR/
 ├── platformio.ini              # PlatformIO configuration
 ├── src/
 │   └── main.cpp                 # ESP32 firmware
-├── python_client/
-│   ├── simulator.py             # Interactive WebSocket client
-│   ├── aparato_test.py          # APARATO-specific testing
-│   ├── led_control_test.py      # Direct LED control testing
-│   └── requirements.txt         # Python dependencies
-├── web_player/                  # Web-based VR simulator
+├── web_player/                  # Web-based VR interface
 │   ├── index.html               # Main interface
 │   ├── styles.css               # Styling
 │   ├── websocket-client.js      # WebSocket communication
@@ -289,6 +293,7 @@ BIJARI_VR/
 │   ├── README.md                # Web player documentation
 │   └── VIDEO_SAMPLES.md         # Video samples for testing
 ├── .gitignore                   # Git ignore file
+├── VIDEO_PLACEHOLDER.md         # Video file instructions
 └── README.md                    # This file
 ```
 

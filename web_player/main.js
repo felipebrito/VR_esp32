@@ -123,6 +123,53 @@ class VRPlayerApp {
             this.log('Player de vídeo integrado com visualizador de LEDs', 'info');
         }
         
+        // Integrar comandos da ESP32 com o Video Player
+        console.log('[DEBUG] Verificando integração ESP32-VideoPlayer...');
+        console.log('[DEBUG] esp32Client:', window.esp32Client);
+        console.log('[DEBUG] videoPlayer:', window.videoPlayer);
+        
+        if (window.esp32Client && window.videoPlayer) {
+            console.log('[DEBUG] Registrando callbacks da ESP32...');
+            
+            window.esp32Client.on('onPlayCommand', (data) => {
+                console.log('[DEBUG] Callback onPlayCommand executado:', data);
+                this.log('ESP32 solicitou PLAY - executando no player', 'success');
+                if (window.videoPlayer.isLoaded) {
+                    this.log('Executando play() no videoPlayer', 'info');
+                    window.videoPlayer.play();
+                } else {
+                    this.log('VideoPlayer não está carregado', 'warning');
+                }
+            });
+            
+            window.esp32Client.on('onPauseCommand', (data) => {
+                console.log('[DEBUG] Callback onPauseCommand executado:', data);
+                this.log('ESP32 solicitou PAUSE - executando no player', 'success');
+                if (window.videoPlayer.isLoaded) {
+                    this.log('Executando pause() no videoPlayer', 'info');
+                    window.videoPlayer.pause();
+                } else {
+                    this.log('VideoPlayer não está carregado', 'warning');
+                }
+            });
+            
+            window.esp32Client.on('onStopCommand', (data) => {
+                console.log('[DEBUG] Callback onStopCommand executado:', data);
+                this.log('ESP32 solicitou STOP - executando no player', 'success');
+                if (window.videoPlayer.isLoaded) {
+                    this.log('Executando stop() no videoPlayer', 'info');
+                    window.videoPlayer.stop();
+                } else {
+                    this.log('VideoPlayer não está carregado', 'warning');
+                }
+            });
+            
+            this.log('Comandos da ESP32 integrados com o player de vídeo', 'success');
+        } else {
+            console.log('[DEBUG] ESP32 ou VideoPlayer não disponível');
+            this.log('ESP32 ou VideoPlayer não disponível para integração', 'warning');
+        }
+        
         // Adicionar informações de debug
         this.addDebugInfo();
     }

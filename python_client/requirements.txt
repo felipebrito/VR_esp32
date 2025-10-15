@@ -1,6 +1,0 @@
-#!/usr/bin/env python3
-"""
-Requirements file for the Python WebSocket client simulator
-"""
-
-websocket-client==1.6.4

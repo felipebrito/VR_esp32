@@ -21,7 +21,7 @@
             <h1>🥽 VR Player Simulator</h1>
             <div class="connection-status">
                 <span id="connectionStatus" class="status disconnected">Desconectado</span>
-                <input type="text" id="esp32IP" placeholder="IP do ESP32" value="192.168.15.6">
+                <input type="text" id="esp32IP" placeholder="IP do ESP32" value="192.168.15.3">
                 <button id="connectBtn">Conectar</button>
                 <button id="disconnectBtn" disabled>Desconectar</button>
             </div>
@@ -132,6 +132,30 @@
                     <div id="video360" class="video-360">
                         <!-- Player 360° será inserido aqui via JavaScript -->
                     </div>
+                    
+                    <!-- Controles de navegação 360° -->
+                    <div class="navigation-controls">
+                        <div class="navigation-info">
+                            <div class="rotation-display">
+                                <span class="label">Rotação:</span>
+                                <span id="rotationDisplay">0°</span>
+                            </div>
+                            <div class="tilt-display">
+                                <span class="label">Inclinação:</span>
+                                <span id="tiltDisplay">0°</span>
+                            </div>
+                        </div>
+                        <div class="navigation-buttons">
+                            <button id="centerView" class="btn btn-info">🎯 Centralizar</button>
+                            <button id="resetView" class="btn btn-secondary">🔄 Reset</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Instruções de navegação -->
+                    <div class="navigation-instructions">
+                        <small>💡 <strong>Navegação 360°:</strong> Clique e arraste na esfera para rotacionar • Botões para centralizar/resetar</small>
+                    </div>
+                    
                     <div class="video-controls">
                         <button id="playBtn" class="btn btn-primary">▶️ Play</button>
                         <button id="pauseBtn" class="btn btn-secondary" disabled>⏸️ Pause</button>

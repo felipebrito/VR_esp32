@@ -1,1 +1,43 @@
 .pio/
+
+# Arquivos de vídeo grandes (mantidos localmente, não enviados para repositório)
+*.mov
+*.mp4
+*.avi
+*.mkv
+*.webm
+*.m4v
+
+# Arquivos de mídia grandes
+*.wav
+*.flac
+*.aac
+*.m4a
+
+# Arquivos temporários e cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Diretórios de ambiente virtual Python
+venv/
+env/
+.venv/
+.env/
+
+# Arquivos de IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Arquivos de build
+build/
+dist/
+*.egg-info/
