@@ -226,113 +226,9 @@ void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsE
 }
 
 void handleWebSocketMessage(uint8_t clientNum, char* message) {
-  Serial.printf("📨 Raw message received: %s\n", message);
+  Serial.printf("📨 Raw message received (client %d): %s\n", clientNum, message);
   
-  // Handle simple string commands (on1, play1, on2, play2, led1:0, led1:1, etc.)
-  String msgStr = String(message);
-  msgStr.trim();
-  
-      // Handle LED progress commands (led1:0-100, led2:0-100)
-      if (msgStr.startsWith("led")) {
-        int colonIndex = msgStr.indexOf(':');
-        if (colonIndex > 0) {
-          String ledPart = msgStr.substring(3, colonIndex); // Get number after "led"
-          String valuePart = msgStr.substring(colonIndex + 1); // Get value after ":"
-          
-          int playerNumber = ledPart.toInt();
-          int progressValue = valuePart.toInt();
-          
-          if (playerNumber >= 1 && playerNumber <= 2 && progressValue >= 0 && progressValue <= 100) {
-            int playerIndex = playerNumber - 1;
-            
-            // Set player progress and state - let updateProgressLEDs() handle the display
-            players[playerIndex].progress = progressValue / 100.0; // Convert to 0.0-1.0
-            players[playerIndex].state = PLAYING; // Set to playing state to show progress
-            players[playerIndex].lastUpdate = millis() + 10000; // Set future timestamp to prevent automatic animation
-            
-            Serial.printf("Player %d progress set to %d%% (%d LEDs)\n", playerNumber, progressValue, 
-                         playerNumber == 1 ? (int)(progressValue * PLAYER1_LEDS / 100) : (int)(progressValue * PLAYER2_LEDS / 100));
-            return;
-          } else {
-            Serial.printf("Invalid LED command: %s (Player %d, Progress %d)\n", msgStr.c_str(), playerNumber, progressValue);
-            return;
-          }
-        }
-      }
-  
-  if (msgStr == "on1") {
-    if (players[0].state == PAUSED_BY_HEADSET) {
-      // Resume from where it was paused
-      players[0].state = PLAYING;
-      Serial.printf("Player 1 headset back on - resuming from %.1f%%\n", players[0].progress * 100);
-    } else {
-      // Normal ready state
-      players[0].state = READY;
-      players[0].connected = true;
-      players[0].progress = 0.0;
-      players[0].lastUpdate = millis(); // Reset timer for blinking
-      Serial.println("Player 1 ready - green blinking");
-    }
-    return;
-  }
-  else if (msgStr == "play1") {
-    players[0].state = PLAYING;
-    players[0].progress = 0.0;
-    players[0].lastUpdate = millis(); // Set start time for 5s animation
-    Serial.println("Player 1 playing - 5s progress animation");
-    return;
-  }
-  else if (msgStr == "on2") {
-    if (players[1].state == PAUSED_BY_HEADSET) {
-      // Resume from where it was paused
-      players[1].state = PLAYING;
-      Serial.printf("Player 2 headset back on - resuming from %.1f%%\n", players[1].progress * 100);
-    } else {
-      // Normal ready state
-      players[1].state = READY;
-      players[1].connected = true;
-      players[1].progress = 0.0;
-      players[1].lastUpdate = millis(); // Reset timer for blinking
-      Serial.println("Player 2 ready - green blinking");
-    }
-    return;
-  }
-  else if (msgStr == "play2") {
-    players[1].state = PLAYING;
-    players[1].progress = 0.0;
-    players[1].lastUpdate = millis(); // Set start time for 5s animation
-    Serial.println("Player 2 playing - 5s progress animation");
-    return;
-  }
-  else if (msgStr == "off1") {
-    players[0].state = PAUSED_BY_HEADSET;
-    players[0].connected = true; // Still connected, just headset removed
-    // Keep progress and lastUpdate for resuming
-    Serial.println("Player 1 headset removed - paused by headset (orange blinking)");
-    return;
-  }
-  else if (msgStr == "off2") {
-    players[1].state = PAUSED_BY_HEADSET;
-    players[1].connected = true; // Still connected, just headset removed
-    // Keep progress and lastUpdate for resuming
-    Serial.println("Player 2 headset removed - paused by headset (orange blinking)");
-    return;
-  }
-  else if (msgStr == "pause1") {
-    if (players[0].state == PLAYING) {
-      players[0].state = PAUSED;
-      Serial.println("Player 1 paused - LEDs dimmed");
-    }
-    return;
-  }
-  else if (msgStr == "pause2") {
-    if (players[1].state == PLAYING) {
-      players[1].state = PAUSED;
-      Serial.println("Player 2 paused - LEDs dimmed");
-    }
-    return;
-  }
-  
+  // All commands are now processed via JSON
   // Try to parse as JSON
   StaticJsonDocument<200> doc;
   DeserializationError error = deserializeJson(doc, message);
@@ -399,6 +295,43 @@ void handleWebSocketMessage(uint8_t clientNum, char* message) {
       Serial.println("Player 2 playing - 5s progress animation");
     }
     return;
+  }
+  
+  // Handle JSON message field (led1:X, led2:X commands)
+  if (doc.containsKey("message")) {
+    String message = doc["message"];
+    
+    Serial.printf("📨 JSON message: %s\n", message.c_str());
+    
+    // Process led1:X or led2:X commands from JSON message
+    if (message.startsWith("led") && message.indexOf(':') > 0) {
+      int colonIndex = message.indexOf(':');
+      String ledPart = message.substring(3, colonIndex); // Get "1" or "2" from "led1" or "led2"
+      String valuePart = message.substring(colonIndex + 1); // Get progress value
+      
+      int ledPlayerNumber = ledPart.toInt(); // This is 1 or 2
+      int progressValue = valuePart.toInt();
+      
+      Serial.printf("🔍 Parsed: ledPlayerNumber=%d, progressValue=%d\n", ledPlayerNumber, progressValue);
+      
+      // Use ledPlayerNumber (from led1/led2), NOT playerId from JSON
+      if (ledPlayerNumber >= 1 && ledPlayerNumber <= 2 && progressValue >= 0 && progressValue <= 100) {
+        int playerIndex = ledPlayerNumber - 1; // 0 for Player 1, 1 for Player 2
+        
+        players[playerIndex].progress = progressValue / 100.0;
+        players[playerIndex].state = PLAYING;
+        players[playerIndex].lastUpdate = millis();
+        players[playerIndex].connected = true;
+        
+        Serial.printf("✅ Player %d: Set progress to %d%% (playerIndex=%d, LEDs=%d)\n", 
+                     ledPlayerNumber, progressValue, playerIndex,
+                     ledPlayerNumber == 1 ? (int)(progressValue * PLAYER1_LEDS / 100) : (int)(progressValue * PLAYER2_LEDS / 100));
+        
+        return; // IMPORTANT: Return here to prevent double processing
+      } else {
+        Serial.printf("❌ Invalid LED command: ledPlayerNumber=%d, progressValue=%d\n", ledPlayerNumber, progressValue);
+      }
+    }
   }
   
   // Handle legacy JSON messages
@@ -530,16 +463,16 @@ void handleButtons() {
         sendCommandToPlayer(i + 1, "pause");
         Serial.printf("Player %d paused\n", i + 1);
       } else if (players[i].state == PAUSED) {
-        // Resume from where it was paused
+        // Resume from where it was paused - Unity controla progresso via led1:X
         players[i].state = PLAYING;
-        players[i].lastUpdate = millis() - (players[i].progress * 5000); // Adjust timer to continue from paused position
+        players[i].lastUpdate = millis(); // Atualizar timestamp para modo manual
         sendCommandToPlayer(i + 1, "play");
         Serial.printf("Player %d resumed\n", i + 1);
-      } else if (players[i].state == READY) {
-        // Start new playback
+      } else if (players[i].state == READY || players[i].state == DISCONNECTED) {
+        // Start new playback - Unity controla progresso via led1:X
         players[i].state = PLAYING;
         players[i].progress = 0.0;
-        players[i].lastUpdate = millis();
+        players[i].lastUpdate = millis(); // Atualizar timestamp para modo manual
         sendCommandToPlayer(i + 1, "play");
         Serial.printf("Player %d started\n", i + 1);
       }
@@ -550,12 +483,12 @@ void handleButtons() {
     Serial.println("=== BUTTON 1 LONG PRESS ===");
     Serial.println("Button 1 long press - stopping all players");
     for (int i = 0; i < 2; i++) {
-      players[i].state = DISCONNECTED;
-      players[i].connected = false;
+      players[i].state = READY; // Voltar para READY para permitir reinício
       players[i].progress = 0.0;
+      players[i].lastUpdate = millis(); // Atualizar timestamp
       sendCommandToPlayer(i + 1, "stop");
     }
-    Serial.println("All players stopped and LEDs turned off");
+    Serial.println("All players stopped and ready to restart");
     Serial.println("=== BUTTON 1 LONG PRESS PROCESSED ===");
   });
   
@@ -568,16 +501,16 @@ void handleButtons() {
       sendCommandToPlayer(2, "pause");
       Serial.println("Player 2 paused");
     } else if (players[1].state == PAUSED) {
-      // Resume from where it was paused
+      // Resume from where it was paused - usar modo manual (lastUpdate = 0)
       players[1].state = PLAYING;
-      players[1].lastUpdate = millis() - (players[1].progress * 5000);
+      players[1].lastUpdate = 0; // Modo manual - Unity controla progresso
       sendCommandToPlayer(2, "play");
       Serial.println("Player 2 resumed");
-    } else if (players[1].state == READY) {
-      // Start new playback
+    } else if (players[1].state == READY || players[1].state == DISCONNECTED) {
+      // Start new playback - usar modo manual (lastUpdate = 0)
       players[1].state = PLAYING;
       players[1].progress = 0.0;
-      players[1].lastUpdate = millis();
+      players[1].lastUpdate = 0; // Modo manual - Unity controla progresso
       sendCommandToPlayer(2, "play");
       Serial.println("Player 2 started");
     }
@@ -587,12 +520,12 @@ void handleButtons() {
     Serial.println("=== BUTTON 2 LONG PRESS ===");
     Serial.println("Button 2 long press - resetting all players");
     for (int i = 0; i < 2; i++) {
-      players[i].state = DISCONNECTED;
-      players[i].connected = false;
+      players[i].state = READY; // Voltar para READY para permitir reinício
       players[i].progress = 0.0;
+      players[i].lastUpdate = 0; // Modo manual
       sendCommandToPlayer(i + 1, "stop");
     }
-    Serial.println("All players reset and LEDs turned off");
+    Serial.println("All players reset and ready to restart");
     Serial.println("=== BUTTON 2 LONG PRESS PROCESSED ===");
   });
 }
@@ -687,46 +620,112 @@ void updateLEDs() {
 void updateProgressLEDs() {
   unsigned long now = millis();
   
+  // Verificar perda de conexão com Unity (Player 1)
+  if (players[0].connected && players[0].state == PLAYING && (now - players[0].lastUpdate) > 15000) { // 15 segundos sem comunicação
+    // Perda de conexão detectada - piscar LED laranja/vermelho
+    static unsigned long lastBlink = 0;
+    static bool blinkState = false;
+    
+    if (now - lastBlink > 500) { // Piscar a cada 500ms
+      blinkState = !blinkState;
+      lastBlink = now;
+      
+      if (blinkState) {
+        // LED laranja/vermelho para indicar perda de conexão
+        for (int i = 0; i < PLAYER1_LEDS; i++) {
+          leds[i] = CRGB(255, 100, 0); // Laranja
+        }
+      } else {
+        // Apagar LEDs
+        for (int i = 0; i < PLAYER1_LEDS; i++) {
+          leds[i] = CRGB::Black;
+        }
+      }
+    }
+    return; // Não processar progresso normal durante perda de conexão
+  }
+  
   // Player 1 progress (LEDs 1-8, left to right)
   if (players[0].state == PLAYING) {
-    // Only animate if it's an automatic play (not manual led1:X command)
-    unsigned long playTime = now - players[0].lastUpdate;
-    if (playTime < 6000) { // Only animate for first 6 seconds after play command
-      float progress = min(1.0, playTime / 5000.0); // 5 seconds = 5000ms
-      
-      // Progresso suave com luminosidade gradual
-      float totalLEDs = progress * PLAYER1_LEDS;
-      int fullLEDs = (int)totalLEDs;
-      float partialLED = totalLEDs - fullLEDs; // Parte fracionária do próximo LED
-      
-      // Acender LEDs completos
-      for (int i = 0; i < fullLEDs; i++) {
-        leds[i] = CRGB::Blue;
-      }
-      
-      // Acender LED parcial com luminosidade proporcional
-      if (fullLEDs < PLAYER1_LEDS && partialLED > 0) {
-        int brightness = (int)(255 * partialLED);
-        leds[fullLEDs] = CRGB(0, 0, brightness); // Azul com luminosidade variável
-      }
-      
-      // Update progress for display
-      players[0].progress = progress;
-    } else {
-      // Show current progress without animation - também com progresso suave
+    // Check if using manual progress control (Unity sends led1:X commands)
+    // Se lastUpdate foi atualizado recentemente (< 5 segundos), é modo manual
+    if ((now - players[0].lastUpdate) < 5000) {
+      // Manual control via led1:X commands - show exact progress with gradual intensity
       float totalLEDs = players[0].progress * PLAYER1_LEDS;
       int fullLEDs = (int)totalLEDs;
       float partialLED = totalLEDs - fullLEDs;
       
-      // Acender LEDs completos
-      for (int i = 0; i < fullLEDs; i++) {
-        leds[i] = CRGB::Blue;
+      // SEMPRE acender pelo menos o primeiro LED quando há progresso > 0
+      if (players[0].progress > 0) {
+        Serial.printf("🔵 PLAYER 1 LED UPDATE: Progresso %.2f, totalLEDs %.2f, fullLEDs %d\n", 
+                     players[0].progress, totalLEDs, fullLEDs);
+        
+        // Acender LEDs completos com intensidade baseada no progresso
+        for (int i = 0; i < fullLEDs; i++) {
+          // Calcular intensidade baseada no progresso do LED atual
+          float ledProgress = (i + 1) / (float)PLAYER1_LEDS; // Progresso deste LED (0.125, 0.25, etc.)
+          float intensity = 0.2 + (0.8 * ledProgress); // 20% a 100% de intensidade
+          int brightness = (int)(255 * intensity);
+          leds[i] = CRGB(0, 0, brightness);
+          Serial.printf("🔵 LED %d acendido com intensidade %d\n", i, brightness);
+        }
+        
+        // Acender LED parcial com luminosidade proporcional
+        if (fullLEDs < PLAYER1_LEDS && partialLED > 0) {
+          float ledProgress = (fullLEDs + 1) / (float)PLAYER1_LEDS; // Progresso deste LED
+          float intensity = 0.2 + (0.8 * ledProgress); // 20% a 100% de intensidade
+          int brightness = (int)(255 * intensity * partialLED);
+          leds[fullLEDs] = CRGB(0, 0, brightness);
+          Serial.printf("🔵 LED %d parcial acendido com intensidade %d\n", fullLEDs, brightness);
+        }
+        
+        // Se não há LEDs completos mas há progresso, acender primeiro LED com intensidade mínima
+        if (fullLEDs == 0 && players[0].progress > 0) {
+          int brightness = (int)(255 * 0.2); // 20% de intensidade mínima
+          leds[0] = CRGB(0, 0, brightness);
+          Serial.printf("🔵 LED 0 acendido com intensidade mínima %d\n", brightness);
+        }
       }
-      
-      // Acender LED parcial com luminosidade proporcional
-      if (fullLEDs < PLAYER1_LEDS && partialLED > 0) {
-        int brightness = (int)(255 * partialLED);
-        leds[fullLEDs] = CRGB(0, 0, brightness);
+    } else {
+      // Automatic animation mode
+      unsigned long playTime = now - players[0].lastUpdate;
+      if (playTime < 6000) { // Only animate for first 6 seconds after play command
+        float progress = min(1.0, playTime / 5000.0); // 5 seconds = 5000ms
+        
+        // Progresso suave com luminosidade gradual
+        float totalLEDs = progress * PLAYER1_LEDS;
+        int fullLEDs = (int)totalLEDs;
+        float partialLED = totalLEDs - fullLEDs; // Parte fracionária do próximo LED
+        
+        // Acender LEDs completos
+        for (int i = 0; i < fullLEDs; i++) {
+          leds[i] = CRGB::Blue;
+        }
+        
+        // Acender LED parcial com luminosidade proporcional
+        if (fullLEDs < PLAYER1_LEDS && partialLED > 0) {
+          int brightness = (int)(255 * partialLED);
+          leds[fullLEDs] = CRGB(0, 0, brightness); // Azul com luminosidade variável
+        }
+        
+        // Update progress for display
+        players[0].progress = progress;
+      } else {
+        // Show current progress without animation - também com progresso suave
+        float totalLEDs = players[0].progress * PLAYER1_LEDS;
+        int fullLEDs = (int)totalLEDs;
+        float partialLED = totalLEDs - fullLEDs;
+        
+        // Acender LEDs completos
+        for (int i = 0; i < fullLEDs; i++) {
+          leds[i] = CRGB::Blue;
+        }
+        
+        // Acender LED parcial com luminosidade proporcional
+        if (fullLEDs < PLAYER1_LEDS && partialLED > 0) {
+          int brightness = (int)(255 * partialLED);
+          leds[fullLEDs] = CRGB(0, 0, brightness);
+        }
       }
     }
   }
@@ -763,31 +762,9 @@ void updateProgressLEDs() {
   
   // Player 2 progress (LEDs 9-16, right to left)
   if (players[1].state == PLAYING) {
-    // Only animate if it's an automatic play (not manual led2:X command)
-    unsigned long playTime = now - players[1].lastUpdate;
-    if (playTime < 6000) { // Only animate for first 6 seconds after play command
-      float progress = min(1.0, playTime / 5000.0); // 5 seconds = 5000ms
-      
-      // Progresso suave com luminosidade gradual
-      float totalLEDs = progress * PLAYER2_LEDS;
-      int fullLEDs = (int)totalLEDs;
-      float partialLED = totalLEDs - fullLEDs; // Parte fracionária do próximo LED
-      
-      // Acender LEDs completos
-      for (int i = 0; i < fullLEDs; i++) {
-        leds[NUM_LEDS - 1 - i] = CRGB::Red;
-      }
-      
-      // Acender LED parcial com luminosidade proporcional
-      if (fullLEDs < PLAYER2_LEDS && partialLED > 0) {
-        int brightness = (int)(255 * partialLED);
-        leds[NUM_LEDS - 1 - fullLEDs] = CRGB(brightness, 0, 0); // Vermelho com luminosidade variável
-      }
-      
-      // Update progress for display
-      players[1].progress = progress;
-    } else {
-      // Show current progress without animation - também com progresso suave
+    // Check if using manual progress control (lastUpdate == 0)
+    if (players[1].lastUpdate == 0) {
+      // Manual control via led2:X commands - show exact progress
       float totalLEDs = players[1].progress * PLAYER2_LEDS;
       int fullLEDs = (int)totalLEDs;
       float partialLED = totalLEDs - fullLEDs;
@@ -801,6 +778,47 @@ void updateProgressLEDs() {
       if (fullLEDs < PLAYER2_LEDS && partialLED > 0) {
         int brightness = (int)(255 * partialLED);
         leds[NUM_LEDS - 1 - fullLEDs] = CRGB(brightness, 0, 0);
+      }
+    } else {
+      // Automatic animation mode
+      unsigned long playTime = now - players[1].lastUpdate;
+      if (playTime < 6000) { // Only animate for first 6 seconds after play command
+        float progress = min(1.0, playTime / 5000.0); // 5 seconds = 5000ms
+        
+        // Progresso suave com luminosidade gradual
+        float totalLEDs = progress * PLAYER2_LEDS;
+        int fullLEDs = (int)totalLEDs;
+        float partialLED = totalLEDs - fullLEDs; // Parte fracionária do próximo LED
+        
+        // Acender LEDs completos
+        for (int i = 0; i < fullLEDs; i++) {
+          leds[NUM_LEDS - 1 - i] = CRGB::Red;
+        }
+        
+        // Acender LED parcial com luminosidade proporcional
+        if (fullLEDs < PLAYER2_LEDS && partialLED > 0) {
+          int brightness = (int)(255 * partialLED);
+          leds[NUM_LEDS - 1 - fullLEDs] = CRGB(brightness, 0, 0); // Vermelho com luminosidade variável
+        }
+        
+        // Update progress for display
+        players[1].progress = progress;
+      } else {
+        // Show current progress without animation - também com progresso suave
+        float totalLEDs = players[1].progress * PLAYER2_LEDS;
+        int fullLEDs = (int)totalLEDs;
+        float partialLED = totalLEDs - fullLEDs;
+        
+        // Acender LEDs completos
+        for (int i = 0; i < fullLEDs; i++) {
+          leds[NUM_LEDS - 1 - i] = CRGB::Red;
+        }
+        
+        // Acender LED parcial com luminosidade proporcional
+        if (fullLEDs < PLAYER2_LEDS && partialLED > 0) {
+          int brightness = (int)(255 * partialLED);
+          leds[NUM_LEDS - 1 - fullLEDs] = CRGB(brightness, 0, 0);
+        }
       }
     }
   }

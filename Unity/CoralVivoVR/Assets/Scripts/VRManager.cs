@@ -467,8 +467,9 @@ public class VRManager : MonoBehaviour
         if (videoPlayer != null)
         {
             videoPlayer.Stop();
+            videoPlayer.time = 0; // Reset to beginning
             isPlaying = false;
-            Debug.Log("Vídeo parado");
+            Debug.Log("Vídeo parado e resetado para início");
             
             // Enviar comando LED para desligar completamente
             if (esp32Client != null && esp32Client.IsConnected)
@@ -477,9 +478,9 @@ public class VRManager : MonoBehaviour
                 Debug.Log("🔴 LED desligado enviado para ESP32");
             }
             
-            // Preparar vídeo para reiniciar
+            // Preparar vídeo para reiniciar do início
             videoPlayer.Prepare();
-            Debug.Log("🔄 Vídeo preparado para reiniciar");
+            Debug.Log("🔄 Vídeo preparado para reiniciar do início");
         }
     }
 
