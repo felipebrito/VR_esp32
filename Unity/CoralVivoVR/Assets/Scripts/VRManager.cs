@@ -16,6 +16,10 @@ public class VRManager : MonoBehaviour
     [Header("Configuração")]
     public bool useDesktopMode = true;
     public string videoFileName = "Pierre_Final.mp4";
+    
+    [Header("Player Configuration")]
+    [Range(1, 2)]
+    public int playerId = 1; // 1 = Player 1, 2 = Player 2
 
     [Header("ESP32 Integration")]
     public ESP32WebSocketClient esp32Client;
@@ -437,8 +441,8 @@ public class VRManager : MonoBehaviour
             // Enviar comando LED inicial para mostrar estado reproduzindo
             if (esp32Client != null && esp32Client.IsConnected)
             {
-                esp32Client.SendLEDCommand("led1:0");
-                Debug.Log("🟢 LED progresso iniciado");
+                esp32Client.SendLEDCommand($"led{playerId}:0");
+                Debug.Log($"🟢 LED progresso iniciado (Player {playerId})");
             }
         }
     }
@@ -474,8 +478,8 @@ public class VRManager : MonoBehaviour
             // Enviar comando LED para desligar completamente
             if (esp32Client != null && esp32Client.IsConnected)
             {
-                esp32Client.SendLEDCommand("off1");
-                Debug.Log("🔴 LED desligado enviado para ESP32");
+                esp32Client.SendLEDCommand($"off{playerId}");
+                Debug.Log($"🔴 LED desligado enviado para ESP32 (Player {playerId})");
             }
             
             // Preparar vídeo para reiniciar do início
@@ -507,8 +511,8 @@ public class VRManager : MonoBehaviour
         // Converter para porcentagem (0-100)
         int progressPercent = Mathf.RoundToInt(progress * 100f);
         
-        // Enviar comando LED para ESP32 via WebSocket
-        string ledCommand = $"led1:{progressPercent}";
+        // Enviar comando LED para ESP32 via WebSocket (usar playerId correto)
+        string ledCommand = $"led{playerId}:{progressPercent}";
         esp32Client.SendLEDCommand(ledCommand);
         
         // Atualizar timestamp

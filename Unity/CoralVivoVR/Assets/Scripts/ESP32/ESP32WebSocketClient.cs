@@ -36,6 +36,7 @@ namespace CoralVivoVR.ESP32
         [SerializeField] private int playerId = 1; // 1 ou 2
         [SerializeField] private bool useRealConnection = true; // true para Quest, false para Editor
         [SerializeField] private bool forceSimulation = false; // Forçar simulação para teste
+        [SerializeField] private bool autoDetectPlayerId = true; // Auto-detectar Player ID do VRManager
         
         [Header("Connection Management")]
         [SerializeField] private float heartbeatInterval = 5f; // Intervalo do heartbeat
@@ -87,6 +88,12 @@ namespace CoralVivoVR.ESP32
                 return;
             }
             
+            // Auto-detectar Player ID do VRManager se habilitado
+            if (autoDetectPlayerId)
+            {
+                SyncPlayerIdFromVRManager();
+            }
+            
             wsUrl = $"ws://{esp32IP}:{esp32Port}/ws";
             LogDebug($"ESP32WebSocketClient inicializado - Player {playerId}");
             LogDebug($"ESP32 HTTP: http://{esp32IP}:{esp32Port}/");
@@ -101,6 +108,27 @@ namespace CoralVivoVR.ESP32
             {
                 LogDebug("🔌 Modo Simulação - Simulando conexão ESP32");
                 SimulateConnection();
+            }
+        }
+        
+        /// <summary>
+        /// Sincronizar Player ID com VRManager
+        /// </summary>
+        private void SyncPlayerIdFromVRManager()
+        {
+            VRManager vrManager = FindObjectOfType<VRManager>();
+            if (vrManager != null)
+            {
+                int newPlayerId = vrManager.playerId;
+                if (newPlayerId != playerId)
+                {
+                    LogDebug($"🔄 Sincronizando Player ID: {playerId} → {newPlayerId}");
+                    playerId = newPlayerId;
+                }
+            }
+            else
+            {
+                LogDebug("⚠️ VRManager não encontrado - usando Player ID padrão");
             }
         }
         
