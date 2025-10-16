@@ -508,11 +508,10 @@ public class VRManager : MonoBehaviour
         float progress = (float)videoPlayer.time / (float)videoPlayer.length;
         progress = Mathf.Clamp01(progress);
         
-        // Converter para porcentagem (0-100)
+        // Converter para porcentagem (0-100) para log
         int progressPercent = Mathf.RoundToInt(progress * 100f);
         
         // Enviar comando LED para ESP32 via WebSocket (usar playerId correto)
-        float progress = progressPercent / 100f; // Converter para 0.0-1.0
         esp32Client.SendLEDCommand(playerId, progress);
         
         // Atualizar timestamp
