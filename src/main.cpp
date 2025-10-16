@@ -1,4 +1,5 @@
 #include <WiFi.h>
+#include <DNSServer.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 #include <FastLED.h>
@@ -11,13 +12,32 @@
 #define PLAYER1_LEDS 8
 #define PLAYER2_LEDS 8
 
+// Debug Configuration
+#define DEBUG_MODE true
+#define DEBUG_WEBSOCKET true
+#define DEBUG_BUTTONS true
+#define DEBUG_LEDS true
+
+// Debug Macros
+#if DEBUG_MODE
+  #define DEBUG_PRINT(x) Serial.print(x)
+  #define DEBUG_PRINTLN(x) Serial.println(x)
+#else
+  #define DEBUG_PRINT(x)
+  #define DEBUG_PRINTLN(x)
+#endif
+
 // Button Configuration
 const unsigned long DEBOUNCE_DELAY = 50;
 const unsigned long LONG_PRESS_TIME = 1000;
 
-// WiFi Configuration
-const char* ssid = "VIVOFIBRA-WIFI6-2D81";
-const char* password = "xgsxJmdzjFNro5q";
+// WiFi Configuration - Access Point P2P
+const char* apSSID = "CoralVivoVR";
+const char* apPassword = "12345678";
+IPAddress apIP(192, 168, 0, 1);
+
+// DNS Server para capturar todas as requisições
+DNSServer dnsServer;
 
 // LED Array
 CRGB leds[NUM_LEDS];
@@ -35,7 +55,7 @@ struct ButtonState {
 ButtonState buttonPlayPause;
 ButtonState buttonEffectStop;
 
-// WebSocket Server
+// Servidor único (porta 80) - HTTP + WebSocket
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
@@ -111,55 +131,91 @@ void setup() {
   pinMode(BUTTON_PLAY_PAUSE, INPUT_PULLUP);
   pinMode(BUTTON_EFFECT_STOP, INPUT_PULLUP);
   
-  // Connect to WiFi
-  WiFi.begin(ssid, password);
-  Serial.print("Connecting to WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println();
-  Serial.print("Connected! IP address: ");
-  Serial.println(WiFi.localIP());
+  // Setup Access Point P2P
+  WiFi.mode(WIFI_AP);
+  WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+  WiFi.softAP(apSSID, apPassword, 1, 0, 8); // Canal 1, rede visível, até 8 dispositivos
+  delay(100);
   
-  // Start WebSocket server
+  Serial.println("Access Point CoralVivoVR iniciado!");
+  Serial.print("SSID: ");
+  Serial.println(apSSID);
+  Serial.print("IP do AP: ");
+  Serial.println(WiFi.softAPIP());
+  
+  // Iniciar DNS Server para capturar todas as requisições
+  dnsServer.start(53, "*", apIP);
+  
+  // Configurar WebSocket
   ws.onEvent(onWebSocketEvent);
   server.addHandler(&ws);
   
-  // Add root handler for testing
+  // Servir aplicação WebXR diretamente
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(200, "text/plain", "ESP32 VR LED Controller - WebSocket Server Running");
+    Serial.println("[HTML] / - Servindo aplicação WebXR");
+    request->send(200, "text/html", "<html><body><h1>CoralVivoVR</h1><p>WebSocket Server Ready</p></body></html>");
+  });
+
+  // Servir arquivos estáticos
+  server.on("/quest-vr.html", HTTP_GET, [](AsyncWebServerRequest *request){
+    Serial.println("[HTML] /quest-vr.html");
+    request->send(200, "text/html", "<html><body><h1>CoralVivoVR</h1><p>WebSocket Server Ready</p></body></html>");
+  });
+
+  // Qualquer outra rota → 204 (evitar desconexão)
+  server.onNotFound([](AsyncWebServerRequest *request){
+    String uri = request->url();
+    Serial.print("[204] ");
+    Serial.println(uri);
+    request->send(204, "text/plain", "");
   });
   
+  // Iniciar servidor único
   server.begin();
-  
   Serial.println("ESP32 VR LED Controller Ready!");
-  Serial.println("WebSocket server started on port 80");
+  Serial.println("HTTP + WebSocket server started on port 80");
 }
 
 void loop() {
+  // Processar DNS Server para capturar requisições
+  dnsServer.processNextRequest();
+  
   ws.cleanupClients();
   handleButtons();
   updateLEDs();
   updatePlayerStates();
+  
+  // Exibir número de dispositivos conectados periodicamente
+  static unsigned long lastCheck = 0;
+  const unsigned long checkInterval = 5000; // Verificar a cada 5 segundos
+  
+  if (millis() - lastCheck > checkInterval) {
+    int connected = WiFi.softAPgetStationNum();
+    Serial.print("Dispositivos conectados: ");
+    Serial.println(connected);
+    lastCheck = millis();
+  }
+  
   delay(10);
 }
 
 void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
   switch(type) {
     case WS_EVT_CONNECT:
-      Serial.printf("Client %u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+      Serial.printf("🔌 Client %u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+      Serial.printf("📊 Total connected clients: %d\n", ws.getClients().size());
       break;
       
     case WS_EVT_DISCONNECT:
-      Serial.printf("Client %u disconnected\n", client->id());
+      Serial.printf("🔌 Client %u disconnected\n", client->id());
+      Serial.printf("📊 Total connected clients: %d\n", ws.getClients().size());
       handlePlayerDisconnect(client->id());
       break;
       
     case WS_EVT_DATA:
       if (len > 0) {
         data[len] = '\0';
-        Serial.printf("Received from client %u: %s\n", client->id(), (char*)data);
+        Serial.printf("📨 Received from client %u: %s\n", client->id(), (char*)data);
         handleWebSocketMessage(client->id(), (char*)data);
       }
       break;
@@ -170,7 +226,7 @@ void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsE
 }
 
 void handleWebSocketMessage(uint8_t clientNum, char* message) {
-  Serial.printf("Raw message received: %s\n", message);
+  Serial.printf("📨 Raw message received: %s\n", message);
   
   // Handle simple string commands (on1, play1, on2, play2, led1:0, led1:1, etc.)
   String msgStr = String(message);
@@ -282,15 +338,41 @@ void handleWebSocketMessage(uint8_t clientNum, char* message) {
   DeserializationError error = deserializeJson(doc, message);
   
   if (error) {
-    Serial.print("JSON parsing failed: ");
-    Serial.println(error.c_str());
+    Serial.printf("❌ JSON parsing failed: %s\n", error.c_str());
     return;
   }
+  
+  Serial.printf("✅ JSON parsed successfully\n");
   
   // Handle JSON command messages
   if (doc.containsKey("command")) {
     String command = doc["command"];
-    Serial.printf("Received JSON command: %s\n", command.c_str());
+    int playerId = doc.containsKey("player") ? doc["player"] : 0; // 0 = broadcast
+    
+    Serial.printf("🎮 Received JSON command: %s (Player: %d)\n", command.c_str(), playerId);
+    
+    // Handle heartbeat messages
+    if (command == "heartbeat") {
+      Serial.printf("💓 Heartbeat received from Player %d\n", playerId);
+      return;
+    }
+    
+    // Handle ready status
+    if (command == "ready") {
+      Serial.printf("✅ Player %d ready\n", playerId);
+      if (playerId == 1) {
+        players[0].connected = true;
+        players[0].state = READY;
+        players[0].progress = 0.0;
+        players[0].lastUpdate = millis();
+      } else if (playerId == 2) {
+        players[1].connected = true;
+        players[1].state = READY;
+        players[1].progress = 0.0;
+        players[1].lastUpdate = millis();
+      }
+      return;
+    }
     
     if (command == "on1") {
       players[0].state = READY;
@@ -329,6 +411,8 @@ void handleWebSocketMessage(uint8_t clientNum, char* message) {
   int playerIndex = playerId - 1;
   String status = doc["status"];
   
+  Serial.printf("📊 Received JSON status: %s (Player: %d)\n", status.c_str(), playerId);
+  
   if (status == "ready") {
     players[playerIndex].state = READY;
     players[playerIndex].connected = true;
@@ -359,6 +443,12 @@ void handleWebSocketMessage(uint8_t clientNum, char* message) {
     players[playerIndex].progress = 0.0;
     Serial.printf("Player %d stopped\n", playerId);
   }
+  else if (status == "heartbeat") {
+    Serial.printf("💓 Heartbeat received from Player %d\n", playerId);
+    // Update last activity timestamp to keep connection alive
+    players[playerIndex].lastUpdate = millis();
+    return; // Don't update other fields for heartbeat
+  }
   
   players[playerIndex].lastUpdate = millis();
 }
@@ -377,12 +467,22 @@ void handlePlayerDisconnect(uint8_t clientNum) {
 }
 
 void sendCommandToPlayer(int playerId, String command) {
-  Serial.print("SENDCMD:");
+  Serial.println("=== SENDCOMMANDTOPLAYER CHAMADA ===");
+  Serial.printf("SENDCMD: Tentando enviar comando '%s' para player %d\n", command.c_str(), playerId);
+  
   int playerIndex = playerId - 1;
-  Serial.printf("DEBUG: Tentando enviar comando '%s' para player %d\n", command.c_str(), playerId);
-  Serial.printf("DEBUG: Player %d - connected: %s, client: %s\n", playerId, 
+  Serial.printf("Player %d - connected: %s, client: %s\n", playerId, 
                 players[playerIndex].connected ? "true" : "false",
                 players[playerIndex].client ? "true" : "false");
+  
+  // Verificar clientes conectados
+  Serial.printf("Total de clientes WebSocket conectados: %d\n", ws.getClients().size());
+  
+  // DEBUG: Listar todos os clientes
+  Serial.println("=== CLIENTES CONECTADOS ===");
+  for (auto& client : ws.getClients()) {
+    Serial.printf("Cliente ID: %u, IP: %s\n", client.id(), client.remoteIP().toString().c_str());
+  }
   
   // Enviar comando se houver pelo menos um cliente conectado
   if (ws.getClients().size() > 0) {
@@ -393,22 +493,38 @@ void sendCommandToPlayer(int playerId, String command) {
     String message;
     serializeJson(doc, message);
     
+    Serial.printf("Enviando mensagem: %s\n", message.c_str());
+    
     // Enviar para todos os clientes conectados
     for (auto& client : ws.getClients()) {
       ws.text(client.id(), message);
+      Serial.printf("Enviado para cliente %u\n", client.id());
     }
-    Serial.printf("Sent command '%s' to player %d (broadcast to %d clients)\n", command.c_str(), playerId, ws.getClients().size());
+    Serial.printf("✅ Comando '%s' enviado para player %d (broadcast para %d clientes)\n", command.c_str(), playerId, ws.getClients().size());
   } else {
-    Serial.printf("ERRO: Nenhum cliente WebSocket conectado\n");
+    Serial.printf("❌ ERRO: Nenhum cliente WebSocket conectado\n");
   }
 }
 
 void handleButtons() {
+  // Debug: verificar estado dos pinos
+  static unsigned long lastDebugTime = 0;
+  if (millis() - lastDebugTime > 5000) { // A cada 5 segundos
+    Serial.printf("🔍 DEBUG: Pino %d = %d, Pino %d = %d\n", 
+                  BUTTON_PLAY_PAUSE, digitalRead(BUTTON_PLAY_PAUSE),
+                  BUTTON_EFFECT_STOP, digitalRead(BUTTON_EFFECT_STOP));
+    lastDebugTime = millis();
+  }
+  
   handleButton(BUTTON_PLAY_PAUSE, &buttonPlayPause, []() {
     // Short press: toggle play/pause for both players
-    Serial.println("=== BUTTON 1 PRESSED ===");
-    Serial.println("Button 1 pressed - toggling play/pause");
+    DEBUG_PRINTLN("=== BUTTON 1 PRESSED ===");
+    DEBUG_PRINTLN("Button 1 pressed - toggling play/pause");
+    Serial.printf("Current time: %lu\n", millis());
+    
     for (int i = 0; i < 2; i++) {
+      Serial.printf("Player %d state: %d\n", i + 1, players[i].state);
+      
       if (players[i].state == PLAYING) {
         players[i].state = PAUSED;
         sendCommandToPlayer(i + 1, "pause");

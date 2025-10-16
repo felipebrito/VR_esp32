@@ -41,3 +41,5 @@ env/
 build/
 dist/
 *.egg-info/
+Unity/CoralVivoVR/Library/
+Unity/CoralVivoVR/Temp/
