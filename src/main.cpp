@@ -642,9 +642,28 @@ void updateLEDs() {
 void updateProgressLEDs() {
   unsigned long now = millis();
   
-  // Verificar perda de conexão com Unity (Player 1)
-  if (players[0].connected && players[0].state == PLAYING && (now - players[0].lastUpdate) > 15000) { // 15 segundos sem comunicação
-    // Perda de conexão detectada - piscar LED laranja/vermelho
+  // Verificar estados que requerem LED laranja piscando
+  bool shouldBlinkOrange = false;
+  String blinkReason = "";
+  
+  // 1. Unity desconectado (não conectado)
+  if (!players[0].connected) {
+    shouldBlinkOrange = true;
+    blinkReason = "Unity desconectado";
+  }
+  // 2. Unity pausado
+  else if (players[0].state == PAUSED) {
+    shouldBlinkOrange = true;
+    blinkReason = "Unity pausado";
+  }
+  // 3. Perda de comunicação durante reprodução (15 segundos sem mensagem)
+  else if (players[0].connected && players[0].state == PLAYING && (now - players[0].lastUpdate) > 15000) {
+    shouldBlinkOrange = true;
+    blinkReason = "Perda de comunicação";
+  }
+  
+  if (shouldBlinkOrange) {
+    // Piscar LED laranja para indicar problema
     static unsigned long lastBlink = 0;
     static bool blinkState = false;
     
@@ -653,10 +672,11 @@ void updateProgressLEDs() {
       lastBlink = now;
       
       if (blinkState) {
-        // LED laranja/vermelho para indicar perda de conexão
+        // LED laranja para indicar problema
         for (int i = 0; i < PLAYER1_LEDS; i++) {
           leds[i] = CRGB(255, 100, 0); // Laranja
         }
+        Serial.printf("🟠 LED laranja piscando: %s\n", blinkReason.c_str());
       } else {
         // Apagar LEDs
         for (int i = 0; i < PLAYER1_LEDS; i++) {
@@ -664,7 +684,7 @@ void updateProgressLEDs() {
         }
       }
     }
-    return; // Não processar progresso normal durante perda de conexão
+    return; // Não processar progresso normal durante problema
   }
   
   // Player 1 progress (LEDs 1-8, left to right)
