@@ -1,4 +1,5 @@
 using UnityEngine;
+using CoralVivoVR.ESP32;
 
 /// <summary>
 /// Script para configurar rapidamente Player 1 ou Player 2
@@ -82,3 +83,5 @@ public class PlayerConfig : MonoBehaviour
         ApplyPlayerConfiguration();
     }
 }
+
+

@@ -29,3 +29,4 @@ async def test():
         print(f"❌ Erro: {e}")
 
 asyncio.run(test())
+

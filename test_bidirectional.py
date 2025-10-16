@@ -48,3 +48,4 @@ async def test_bidirectional():
         print(f"❌ Erro: {e}")
 
 asyncio.run(test_bidirectional())
+

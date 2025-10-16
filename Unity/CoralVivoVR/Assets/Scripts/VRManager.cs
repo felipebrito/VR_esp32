@@ -441,7 +441,7 @@ public class VRManager : MonoBehaviour
             // Enviar comando LED inicial para mostrar estado reproduzindo
             if (esp32Client != null && esp32Client.IsConnected)
             {
-                esp32Client.SendLEDCommand($"led{playerId}:0");
+                esp32Client.SendLEDCommand(playerId, 0f);
                 Debug.Log($"🟢 LED progresso iniciado (Player {playerId})");
             }
         }
@@ -478,7 +478,7 @@ public class VRManager : MonoBehaviour
             // Enviar comando LED para desligar completamente
             if (esp32Client != null && esp32Client.IsConnected)
             {
-                esp32Client.SendLEDCommand($"off{playerId}");
+                esp32Client.SendLEDCommand(playerId, -1f); // -1 indica desligar
                 Debug.Log($"🔴 LED desligado enviado para ESP32 (Player {playerId})");
             }
             
@@ -512,8 +512,8 @@ public class VRManager : MonoBehaviour
         int progressPercent = Mathf.RoundToInt(progress * 100f);
         
         // Enviar comando LED para ESP32 via WebSocket (usar playerId correto)
-        string ledCommand = $"led{playerId}:{progressPercent}";
-        esp32Client.SendLEDCommand(ledCommand);
+        float progress = progressPercent / 100f; // Converter para 0.0-1.0
+        esp32Client.SendLEDCommand(playerId, progress);
         
         // Atualizar timestamp
         lastProgressUpdateTime = Time.time;

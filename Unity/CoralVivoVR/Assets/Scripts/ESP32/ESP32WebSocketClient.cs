@@ -29,14 +29,13 @@ namespace CoralVivoVR.ESP32
     {
         [Header("ESP32 Connection Settings")]
         [SerializeField] private string esp32IP = "192.168.0.1";
-        [SerializeField] private int esp32Port = 80; // WebSocket na porta 80
+        [SerializeField] private int esp32Port = 80;
         [SerializeField] private float reconnectDelay = 3f;
         
         [Header("Player Configuration")]
         [SerializeField] private int playerId = 1; // 1 ou 2
         [SerializeField] private bool useRealConnection = true; // true para Quest, false para Editor
         [SerializeField] private bool forceSimulation = false; // Forçar simulação para teste
-        [SerializeField] private bool autoDetectPlayerId = true; // Auto-detectar Player ID do VRManager
         
         [Header("Connection Management")]
         [SerializeField] private float heartbeatInterval = 5f; // Intervalo do heartbeat
@@ -44,9 +43,9 @@ namespace CoralVivoVR.ESP32
         [SerializeField] private bool autoReconnect = true; // Reconexão automática
         
         // Debug Configuration
-        [SerializeField] private bool enableDebugLogs = false; // Desabilitado para reduzir spam
-        [SerializeField] private bool enableWebSocketDebug = false; // Desabilitado para reduzir spam
-        [SerializeField] private bool enableConnectionDebug = true; // Apenas logs de conexão
+        [SerializeField] private bool enableDebugLogs = true;
+        [SerializeField] private bool enableWebSocketDebug = true;
+        [SerializeField] private bool enableConnectionDebug = true;
         [SerializeField] private int maxReconnectAttempts = 5;
         
         // Events
@@ -88,12 +87,6 @@ namespace CoralVivoVR.ESP32
                 return;
             }
             
-            // Auto-detectar Player ID do VRManager se habilitado
-            if (autoDetectPlayerId)
-            {
-                SyncPlayerIdFromVRManager();
-            }
-            
             wsUrl = $"ws://{esp32IP}:{esp32Port}/ws";
             LogDebug($"ESP32WebSocketClient inicializado - Player {playerId}");
             LogDebug($"ESP32 HTTP: http://{esp32IP}:{esp32Port}/");
@@ -108,27 +101,6 @@ namespace CoralVivoVR.ESP32
             {
                 LogDebug("🔌 Modo Simulação - Simulando conexão ESP32");
                 SimulateConnection();
-            }
-        }
-        
-        /// <summary>
-        /// Sincronizar Player ID com VRManager
-        /// </summary>
-        private void SyncPlayerIdFromVRManager()
-        {
-            VRManager vrManager = FindObjectOfType<VRManager>();
-            if (vrManager != null)
-            {
-                int newPlayerId = vrManager.playerId;
-                if (newPlayerId != playerId)
-                {
-                    LogDebug($"🔄 Sincronizando Player ID: {playerId} → {newPlayerId}");
-                    playerId = newPlayerId;
-                }
-            }
-            else
-            {
-                LogDebug("⚠️ VRManager não encontrado - usando Player ID padrão");
             }
         }
         
@@ -185,119 +157,12 @@ namespace CoralVivoVR.ESP32
             
             isConnecting = true;
             LogDebug($"Tentando conectar ao ESP32: {wsUrl}");
-            
-            if (useRealConnection && !forceSimulation)
-            {
-                StartCoroutine(ConnectRealWebSocket());
-            }
-            else
-            {
-                StartCoroutine(ConnectCoroutine());
-            }
+            StartCoroutine(ConnectCoroutine());
         }
         
         /// <summary>
-        /// Conectar usando WebSocket real
+        /// Desconectar do ESP32
         /// </summary>
-        private IEnumerator ConnectRealWebSocket()
-        {
-            LogConnectionDebug("Iniciando conexão WebSocket real...");
-            
-            webSocket = new ClientWebSocket();
-            cancellationTokenSource = new CancellationTokenSource();
-            
-            LogConnectionDebug($"Conectando ao WebSocket: {wsUrl}");
-            
-            // Converter para Task e aguardar
-            var connectTask = webSocket.ConnectAsync(new Uri(wsUrl), cancellationTokenSource.Token);
-            
-            // Aguardar conexão
-            while (!connectTask.IsCompleted)
-            {
-                yield return null;
-            }
-            
-            if (connectTask.IsFaulted)
-            {
-                LogConnectionDebug($"❌ Erro na conexão WebSocket: {connectTask.Exception?.GetBaseException().Message}");
-                OnError?.Invoke(connectTask.Exception?.GetBaseException().Message ?? "Erro desconhecido");
-                isConnecting = false;
-                TryReconnect();
-                yield break;
-            }
-            
-            if (webSocket.State == WebSocketState.Open)
-            {
-                LogConnectionDebug("✅ Conectado ao ESP32 WebSocket!");
-                isConnecting = false;
-                isConnected = true;
-                reconnectAttempts = 0;
-                lastMessageTime = Time.time;
-                
-                OnConnected?.Invoke();
-                
-                // Iniciar heartbeat
-                if (heartbeatCoroutine != null) StopCoroutine(heartbeatCoroutine);
-                heartbeatCoroutine = StartCoroutine(HeartbeatCoroutine());
-                
-                // Iniciar listener de mensagens
-                StartCoroutine(ListenForMessages());
-                
-                yield return new WaitForSeconds(0.1f);
-                SendPlayerStatus("ready");
-            }
-            else
-            {
-                LogConnectionDebug($"❌ WebSocket não conectado. Estado: {webSocket.State}");
-                OnError?.Invoke($"WebSocket não conectado. Estado: {webSocket.State}");
-                isConnecting = false;
-                TryReconnect();
-            }
-        }
-        
-        /// <summary>
-        /// Escutar mensagens do WebSocket
-        /// </summary>
-        private IEnumerator ListenForMessages()
-        {
-            var buffer = new byte[1024];
-            
-            while (isConnected && webSocket?.State == WebSocketState.Open)
-            {
-                var receiveTask = webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), cancellationTokenSource.Token);
-                
-                // Aguardar mensagem
-                while (!receiveTask.IsCompleted)
-                {
-                    yield return null;
-                }
-                
-                if (receiveTask.IsFaulted)
-                {
-                    LogDebug($"❌ Erro ao receber mensagem: {receiveTask.Exception?.GetBaseException().Message}");
-                    break;
-                }
-                
-                var result = receiveTask.Result;
-                if (result.MessageType == WebSocketMessageType.Text)
-                {
-                    string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    LogDebug($"📨 Mensagem recebida: {message}");
-                    lastMessageTime = Time.time;
-                    HandleESP32Message(message);
-                }
-                else if (result.MessageType == WebSocketMessageType.Close)
-                {
-                    LogDebug("🔌 WebSocket fechado pelo servidor");
-                    break;
-                }
-                
-                yield return null;
-            }
-            
-            LogDebug("🔌 Listener de mensagens finalizado");
-        }
-        
         public void Disconnect()
         {
             if (!isConnected)
@@ -309,24 +174,6 @@ namespace CoralVivoVR.ESP32
             LogDebug("Desconectando do ESP32");
             isConnected = false;
             isConnecting = false;
-            
-            // Fechar WebSocket real
-            if (webSocket != null && webSocket.State == WebSocketState.Open)
-            {
-                try
-                {
-                    webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disconnecting", CancellationToken.None);
-                }
-                catch (Exception e)
-                {
-                    LogDebug($"Erro ao fechar WebSocket: {e.Message}");
-                }
-            }
-            
-            // Cancelar operações
-            cancellationTokenSource?.Cancel();
-            cancellationTokenSource?.Dispose();
-            cancellationTokenSource = null;
             
             // Parar corrotinas
             if (reconnectCoroutine != null)
@@ -363,21 +210,6 @@ namespace CoralVivoVR.ESP32
         /// <summary>
         /// Enviar comando LED para ESP32
         /// </summary>
-        public void SendLEDCommand(string ledCommand)
-        {
-            if (!isConnected)
-            {
-                LogDebug($"Não foi possível enviar comando LED '{ledCommand}' - não conectado");
-                return;
-            }
-            
-            SendMessage(ledCommand);
-            LogDebug($"Enviado comando LED: {ledCommand}");
-        }
-        
-        /// <summary>
-        /// Enviar comando LED para ESP32
-        /// </summary>
         public void SendLEDCommand(int playerId, float progress)
         {
             if (!isConnected)
@@ -399,14 +231,7 @@ namespace CoralVivoVR.ESP32
         {
             if (!isConnected)
             {
-                // Não logar para evitar spam - apenas retornar silenciosamente
-                return;
-            }
-            
-            // Verificar estado do WebSocket antes de enviar
-            if (useRealConnection && !forceSimulation && webSocket?.State != WebSocketState.Open)
-            {
-                // WebSocket não está aberto - não enviar
+                LogDebug("Não conectado ao ESP32 - mensagem não enviada");
                 return;
             }
             
@@ -417,33 +242,11 @@ namespace CoralVivoVR.ESP32
                 messageWithPlayer = $"{{\"player\":{playerId},\"message\":\"{message}\"}}";
             }
             
+            // Simular envio de mensagem WebSocket
+            // Em uma implementação real, usaria WebSocketSharp ou similar
             LogDebug($"Enviando (Player {playerId}): {messageWithPlayer}");
             
-            if (useRealConnection && !forceSimulation && webSocket?.State == WebSocketState.Open)
-            {
-                // Enviar via WebSocket real
-                try
-                {
-                    var buffer = Encoding.UTF8.GetBytes(messageWithPlayer);
-                    var sendTask = webSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, cancellationTokenSource.Token);
-                    
-                    if (sendTask.IsFaulted)
-                    {
-                        LogDebug($"❌ Erro ao enviar mensagem: {sendTask.Exception?.GetBaseException().Message}");
-                    }
-                }
-                catch (Exception e)
-                {
-                    LogDebug($"❌ Exceção ao enviar mensagem: {e.Message}");
-                    isConnected = false; // Marcar como desconectado se envio falhar
-                }
-            }
-            else
-            {
-                // Simular envio para modo de teste
-                LogDebug($"Simulando envio: {messageWithPlayer}");
-            }
-            
+            // Simular resposta do ESP32 para comandos específicos
             if (message.Contains("ready"))
             {
                 LogDebug($"Player {playerId} pronto - aguardando comandos do ESP32");
@@ -560,11 +363,13 @@ namespace CoralVivoVR.ESP32
                 
                 if (isConnected)
                 {
-                    // Verificar estado do WebSocket diretamente
-                    if (useRealConnection && !forceSimulation && webSocket?.State != WebSocketState.Open)
+                    // Verificar se recebeu mensagem recentemente
+                    float timeSinceLastMessage = Time.time - lastMessageTime;
+                    
+                    if (timeSinceLastMessage > connectionTimeout)
                     {
-                        LogDebug($"⚠️ WebSocket não está mais aberto - Estado: {webSocket?.State}");
-                        isConnected = false;
+                        LogDebug($"⚠️ Timeout de conexão - sem mensagens por {timeSinceLastMessage:F1}s");
+                        Disconnect();
                         
                         if (autoReconnect)
                         {
@@ -764,14 +569,30 @@ namespace CoralVivoVR.ESP32
         
         void OnApplicationPause(bool pauseStatus)
         {
-            // Desabilitado para evitar comandos desnecessários
-            LogDebug($"App pause status: {pauseStatus} - comandos desabilitados");
+            if (pauseStatus)
+            {
+                LogDebug("App pausado - enviando pause1");
+                SendMessage("pause1");
+            }
+            else
+            {
+                LogDebug("App retomado - enviando on1");
+                SendMessage("on1");
+            }
         }
         
         void OnApplicationFocus(bool hasFocus)
         {
-            // Desabilitado para evitar comandos desnecessários
-            LogDebug($"App focus status: {hasFocus} - comandos desabilitados");
+            if (!hasFocus)
+            {
+                LogDebug("App perdeu foco - enviando pause1");
+                SendMessage("pause1");
+            }
+            else
+            {
+                LogDebug("App ganhou foco - enviando on1");
+                SendMessage("on1");
+            }
         }
         
         private void OnDestroy()

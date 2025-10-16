@@ -77,3 +77,5 @@
 3. **Botões** controlam players corretos
 4. **LEDs laranja** funcionam para ambos
 5. **Builds** geram APKs separados
+
+

@@ -64,3 +64,4 @@ async def test_buttons():
         print(f"❌ Erro: {e}")
 
 asyncio.run(test_buttons())
+
