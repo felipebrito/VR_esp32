@@ -267,27 +267,8 @@ namespace CoralVivoVR.ESP32
             
             LogConnectionDebug("Enviando requisição HTTP...");
             
-            // No Editor, simular conexão bem-sucedida para evitar erro de conexão insegura
-            #if UNITY_EDITOR
-            LogConnectionDebug("Editor Mode - Simulando conexão HTTP bem-sucedida");
-            yield return new WaitForSeconds(0.5f); // Simular delay de conexão
-            
-            LogConnectionDebug("✅ ESP32 HTTP acessível - simulando WebSocket");
-            
-            isConnecting = false;
-            isConnected = true;
-            reconnectAttempts = 0;
-            lastMessageTime = Time.time;
-            
-            LogConnectionDebug("✅ Conectado ao ESP32 WebSocket!");
-            OnConnected?.Invoke();
-            
-            if (heartbeatCoroutine != null) StopCoroutine(heartbeatCoroutine);
-            heartbeatCoroutine = StartCoroutine(HeartbeatCoroutine());
-            
-            yield return new WaitForSeconds(0.1f);
-            SendPlayerStatus("ready");
-            #else
+            // Tentar conexão real mesmo no Editor
+            LogConnectionDebug("Tentando conexão real com ESP32...");
             using (WWW www = new WWW(testUrl))
             {
                 yield return www;
@@ -328,7 +309,6 @@ namespace CoralVivoVR.ESP32
                         TryReconnect();
                 }
             }
-            #endif
         }
         
         /// <summary>
