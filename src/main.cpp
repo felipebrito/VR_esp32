@@ -301,7 +301,7 @@ void handleWebSocketMessage(uint8_t clientNum, char* message) {
   if (doc.containsKey("message")) {
     String message = doc["message"];
     
-    Serial.printf("📨 JSON message: %s\n", message.c_str());
+    Serial.printf("📨 JSON message: %s (client %d)\n", message.c_str(), clientNum);
     
     // Process led1:X or led2:X commands from JSON message
     if (message.startsWith("led") && message.indexOf(':') > 0) {
@@ -312,7 +312,21 @@ void handleWebSocketMessage(uint8_t clientNum, char* message) {
       int ledPlayerNumber = ledPart.toInt(); // This is 1 or 2
       int progressValue = valuePart.toInt();
       
-      Serial.printf("🔍 Parsed: ledPlayerNumber=%d, progressValue=%d\n", ledPlayerNumber, progressValue);
+      Serial.printf("🔍 Parsed: ledPlayerNumber=%d, progressValue=%d (client %d)\n", ledPlayerNumber, progressValue, clientNum);
+      
+      // DEBUG: Verificar se já processamos este comando
+      static int lastProcessedLedPlayerNumber = -1;
+      static int lastProcessedProgressValue = -1;
+      static unsigned long lastProcessedTime = 0;
+      
+      // Se é o mesmo comando em menos de 100ms, ignorar (comando duplicado)
+      if (ledPlayerNumber == lastProcessedLedPlayerNumber && 
+          progressValue == lastProcessedProgressValue && 
+          (millis() - lastProcessedTime) < 100) {
+        Serial.printf("⚠️ IGNORANDO comando duplicado: led%d:%d (já processado há %lums)\n", 
+                     ledPlayerNumber, progressValue, (millis() - lastProcessedTime));
+        return;
+      }
       
       // Use ledPlayerNumber (from led1/led2), NOT playerId from JSON
       if (ledPlayerNumber >= 1 && ledPlayerNumber <= 2 && progressValue >= 0 && progressValue <= 100) {
@@ -322,6 +336,11 @@ void handleWebSocketMessage(uint8_t clientNum, char* message) {
         players[playerIndex].state = PLAYING;
         players[playerIndex].lastUpdate = millis();
         players[playerIndex].connected = true;
+        
+        // Atualizar controle de duplicação
+        lastProcessedLedPlayerNumber = ledPlayerNumber;
+        lastProcessedProgressValue = progressValue;
+        lastProcessedTime = millis();
         
         Serial.printf("✅ Player %d: Set progress to %d%% (playerIndex=%d, LEDs=%d)\n", 
                      ledPlayerNumber, progressValue, playerIndex,
@@ -450,45 +469,47 @@ void handleButtons() {
   }
   
   handleButton(BUTTON_PLAY_PAUSE, &buttonPlayPause, []() {
-    // Short press: toggle play/pause for both players
+    // Short press: toggle play/pause for ONLY Player 1
     DEBUG_PRINTLN("=== BUTTON 1 PRESSED ===");
-    DEBUG_PRINTLN("Button 1 pressed - toggling play/pause");
+    DEBUG_PRINTLN("Button 1 pressed - toggling play/pause for Player 1");
     Serial.printf("Current time: %lu\n", millis());
     
-    for (int i = 0; i < 2; i++) {
-      Serial.printf("Player %d state: %d\n", i + 1, players[i].state);
-      
-      if (players[i].state == PLAYING) {
-        players[i].state = PAUSED;
-        sendCommandToPlayer(i + 1, "pause");
-        Serial.printf("Player %d paused\n", i + 1);
-      } else if (players[i].state == PAUSED) {
-        // Resume from where it was paused - Unity controla progresso via led1:X
-        players[i].state = PLAYING;
-        players[i].lastUpdate = millis(); // Atualizar timestamp para modo manual
-        sendCommandToPlayer(i + 1, "play");
-        Serial.printf("Player %d resumed\n", i + 1);
-      } else if (players[i].state == READY || players[i].state == DISCONNECTED) {
-        // Start new playback - Unity controla progresso via led1:X
-        players[i].state = PLAYING;
-        players[i].progress = 0.0;
-        players[i].lastUpdate = millis(); // Atualizar timestamp para modo manual
-        sendCommandToPlayer(i + 1, "play");
-        Serial.printf("Player %d started\n", i + 1);
-      }
+    // Apenas Player 1 (index 0)
+    int i = 0;
+    Serial.printf("Player %d state: %d\n", i + 1, players[i].state);
+    
+    if (players[i].state == PLAYING) {
+      players[i].state = PAUSED;
+      sendCommandToPlayer(i + 1, "pause");
+      Serial.printf("Player %d paused\n", i + 1);
+    } else if (players[i].state == PAUSED) {
+      // Resume from where it was paused - Unity controla progresso via led1:X
+      players[i].state = PLAYING;
+      players[i].lastUpdate = millis(); // Atualizar timestamp para modo manual
+      sendCommandToPlayer(i + 1, "play");
+      Serial.printf("Player %d resumed\n", i + 1);
+    } else if (players[i].state == READY || players[i].state == DISCONNECTED) {
+      // Start new playback - Unity controla progresso via led1:X
+      players[i].state = PLAYING;
+      players[i].progress = 0.0;
+      players[i].lastUpdate = millis(); // Atualizar timestamp para modo manual
+      sendCommandToPlayer(i + 1, "play");
+      Serial.printf("Player %d started\n", i + 1);
     }
+    
     Serial.println("=== BUTTON 1 PROCESSED ===");
   }, []() {
-    // Long press: stop all players and turn off LEDs
+    // Long press: stop ONLY Player 1 and turn off LEDs
     Serial.println("=== BUTTON 1 LONG PRESS ===");
-    Serial.println("Button 1 long press - stopping all players");
-    for (int i = 0; i < 2; i++) {
-      players[i].state = READY; // Voltar para READY para permitir reinício
-      players[i].progress = 0.0;
-      players[i].lastUpdate = millis(); // Atualizar timestamp
-      sendCommandToPlayer(i + 1, "stop");
-    }
-    Serial.println("All players stopped and ready to restart");
+    Serial.println("Button 1 long press - stopping Player 1");
+    
+    // Apenas Player 1 (index 0)
+    players[0].state = READY; // Voltar para READY para permitir reinício
+    players[0].progress = 0.0;
+    players[0].lastUpdate = millis(); // Atualizar timestamp
+    sendCommandToPlayer(1, "stop");
+    
+    Serial.println("Player 1 stopped and ready to restart");
     Serial.println("=== BUTTON 1 LONG PRESS PROCESSED ===");
   });
   
@@ -516,16 +537,17 @@ void handleButtons() {
     }
     Serial.println("=== BUTTON 2 PROCESSED ===");
   }, []() {
-    // Long press: reset all players and turn off LEDs
+    // Long press: reset ONLY Player 2 and turn off LEDs
     Serial.println("=== BUTTON 2 LONG PRESS ===");
-    Serial.println("Button 2 long press - resetting all players");
-    for (int i = 0; i < 2; i++) {
-      players[i].state = READY; // Voltar para READY para permitir reinício
-      players[i].progress = 0.0;
-      players[i].lastUpdate = 0; // Modo manual
-      sendCommandToPlayer(i + 1, "stop");
-    }
-    Serial.println("All players reset and ready to restart");
+    Serial.println("Button 2 long press - resetting Player 2");
+    
+    // Apenas Player 2 (index 1)
+    players[1].state = READY; // Voltar para READY para permitir reinício
+    players[1].progress = 0.0;
+    players[1].lastUpdate = millis(); // Atualizar timestamp
+    sendCommandToPlayer(2, "stop");
+    
+    Serial.println("Player 2 reset and ready to restart");
     Serial.println("=== BUTTON 2 LONG PRESS PROCESSED ===");
   });
 }
