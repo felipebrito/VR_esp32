@@ -66,7 +66,8 @@ enum PlayerState {
   READY,
   PLAYING,
   PAUSED,
-  PAUSED_BY_HEADSET
+  PAUSED_BY_HEADSET,
+  SIGNAL_LOST  // Novo estado para perda de sinal com efeitos
 };
 
 struct Player {
@@ -75,11 +76,12 @@ struct Player {
   float progress; // 0.0 to 1.0
   unsigned long lastUpdate;
   AsyncWebSocketClient* client;
+  int signalLostEffect; // 0 = rainbow, 1 = chase
 };
 
 Player players[2] = {
-  {DISCONNECTED, false, 0.0, 0, nullptr},
-  {DISCONNECTED, false, 0.0, 0, nullptr}
+  {DISCONNECTED, false, 0.0, 0, nullptr, 0},
+  {DISCONNECTED, false, 0.0, 0, nullptr, 0}
 };
 
 
@@ -226,7 +228,7 @@ void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsE
 }
 
 void handleWebSocketMessage(uint8_t clientNum, char* message) {
-  Serial.printf("📨 Raw message received: %s\n", message);
+  Serial.printf("📨 Raw message received from client %d: %s\n", clientNum, message);
   
   // Handle simple string commands (on1, play1, on2, play2, led1:0, led1:1, etc.)
   String msgStr = String(message);
@@ -261,15 +263,18 @@ void handleWebSocketMessage(uint8_t clientNum, char* message) {
       }
   
   if (msgStr == "on1") {
+    Serial.println("✅ Processando comando: on1");
     if (players[0].state == PAUSED_BY_HEADSET) {
       // Resume from where it was paused
       players[0].state = PLAYING;
+      players[0].signalLostEffect = 0; // Reset effect
       Serial.printf("Player 1 headset back on - resuming from %.1f%%\n", players[0].progress * 100);
     } else {
       // Normal ready state
       players[0].state = READY;
       players[0].connected = true;
       players[0].progress = 0.0;
+      players[0].signalLostEffect = 0; // Reset effect
       players[0].lastUpdate = millis(); // Reset timer for blinking
       Serial.println("Player 1 ready - green blinking");
     }
@@ -286,12 +291,14 @@ void handleWebSocketMessage(uint8_t clientNum, char* message) {
     if (players[1].state == PAUSED_BY_HEADSET) {
       // Resume from where it was paused
       players[1].state = PLAYING;
+      players[1].signalLostEffect = 0; // Reset effect
       Serial.printf("Player 2 headset back on - resuming from %.1f%%\n", players[1].progress * 100);
     } else {
       // Normal ready state
       players[1].state = READY;
       players[1].connected = true;
       players[1].progress = 0.0;
+      players[1].signalLostEffect = 0; // Reset effect
       players[1].lastUpdate = millis(); // Reset timer for blinking
       Serial.println("Player 2 ready - green blinking");
     }
@@ -330,6 +337,37 @@ void handleWebSocketMessage(uint8_t clientNum, char* message) {
       players[1].state = PAUSED;
       Serial.println("Player 2 paused - LEDs dimmed");
     }
+    return;
+  }
+  
+  // Comandos para perda de sinal com efeitos especiais
+  else if (msgStr == "signal_lost1") {
+    players[0].state = SIGNAL_LOST;
+    players[0].connected = false;
+    players[0].signalLostEffect = 0; // Rainbow
+    Serial.println("🌈 Player 1 signal lost - rainbow effect");
+    return;
+  }
+  else if (msgStr == "signal_lost2") {
+    players[1].state = SIGNAL_LOST;
+    players[1].connected = false;
+    players[1].signalLostEffect = 1; // Chase
+    Serial.println("🏃 Player 2 signal lost - chase effect");
+    Serial.printf("Player 2 signalLostEffect: %d\n", players[1].signalLostEffect);
+    return;
+  }
+  else if (msgStr == "signal_lost1:chase") {
+    players[0].state = SIGNAL_LOST;
+    players[0].connected = false;
+    players[0].signalLostEffect = 1; // Chase
+    Serial.println("🏃 Player 1 signal lost - chase effect");
+    return;
+  }
+  else if (msgStr == "signal_lost2:rainbow") {
+    players[1].state = SIGNAL_LOST;
+    players[1].connected = false;
+    players[1].signalLostEffect = 0; // Rainbow
+    Serial.println("🌈 Player 2 signal lost - rainbow effect");
     return;
   }
   
@@ -760,6 +798,26 @@ void updateProgressLEDs() {
       leds[fullLEDs] = CRGB(0, 0, brightness);
     }
   }
+  else if (players[0].state == SIGNAL_LOST) {
+    // Efeito baseado no tipo selecionado - Player 1
+    if (players[0].signalLostEffect == 0) {
+      // Rainbow effect
+      for (int i = 0; i < PLAYER1_LEDS; i++) {
+        leds[i] = CHSV((effectStep + i * 32) % 256, 255, 255);
+      }
+      effectStep = (effectStep + 4) % 256;
+    } else {
+      // Chase effect
+      for (int i = 0; i < PLAYER1_LEDS; i++) {
+        if (i == (effectStep % PLAYER1_LEDS)) {
+          leds[i] = CRGB::White;
+        } else {
+          leds[i] = CRGB::Black;
+        }
+      }
+      effectStep++;
+    }
+  }
   
   // Player 2 progress (LEDs 9-16, right to left)
   if (players[1].state == PLAYING) {
@@ -832,6 +890,30 @@ void updateProgressLEDs() {
     if (fullLEDs < PLAYER2_LEDS && partialLED > 0) {
       int brightness = (int)(64 * partialLED);
       leds[NUM_LEDS - 1 - fullLEDs] = CRGB(brightness, 0, 0);
+    }
+  }
+  else if (players[1].state == SIGNAL_LOST) {
+    // Efeito baseado no tipo selecionado - Player 2
+    if (players[1].signalLostEffect == 0) {
+      // Rainbow effect
+      Serial.println("Player 2: Rendering RAINBOW effect");
+      for (int i = 0; i < PLAYER2_LEDS; i++) {
+        int ledIndex = NUM_LEDS - 1 - i;
+        leds[ledIndex] = CHSV((effectStep + i * 32) % 256, 255, 255);
+      }
+      effectStep = (effectStep + 4) % 256;
+    } else {
+      // Chase effect
+      Serial.println("Player 2: Rendering CHASE effect");
+      for (int i = 0; i < PLAYER2_LEDS; i++) {
+        int ledIndex = NUM_LEDS - 1 - i;
+        if (i == (effectStep % PLAYER2_LEDS)) {
+          leds[ledIndex] = CRGB::White;
+        } else {
+          leds[ledIndex] = CRGB::Black;
+        }
+      }
+      effectStep++;
     }
   }
   

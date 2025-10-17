@@ -82,9 +82,27 @@ CoralVivoVR/
 - **LEDs**: 16 WS2812B (8 para cada player)
 - **Botões**: 2 botões físicos (play/pause/stop)
 
+### **Estados dos LEDs:**
+- **🟢 READY**: Verde piscando
+- **🔵 PLAYING**: Azul progressivo (Player 1) / Vermelho progressivo (Player 2)
+- **⏸️ PAUSED**: Azul escuro (Player 1) / Vermelho escuro (Player 2)
+- **🔴 HEADSET OFF**: Azul escuro progressivo (Player 1) / Vermelho escuro progressivo (Player 2)
+- **🌈 SIGNAL LOST**: Rainbow effect (Player 1) / Chase effect (Player 2)
+
+### **Comandos WebSocket:**
+- **String simples**: `on1`/`on2`, `play1`/`play2`, `pause1`/`pause2`, `off1`/`off2`
+- **Progresso**: `led1:X`/`led2:X` (X = 0-100)
+- **Perda de sinal**: `signal_lost1`/`signal_lost2`, `signal_lost1:chase`/`signal_lost2:rainbow`
+- **JSON**: `{"player":1,"status":"playing","progress":0.5}`
+
 ### **Compilar e Upload:**
 ```bash
 pio run -t upload
+```
+
+### **Teste de LEDs:**
+```bash
+python3 led_test.py
 ```
 
 ## 🎮 **Funcionalidades Completas**
@@ -134,10 +152,11 @@ pio run -t upload
 ## 🎯 **Status Atual**
 
 - ✅ **Versão Desktop**: Funcionando perfeitamente
-- ✅ **ESP32 Firmware**: Funcionando perfeitamente
+- ✅ **ESP32 Firmware**: Funcionando perfeitamente com todos os estados
 - ✅ **WebSocket**: Comunicação bidirecional funcionando
-- ✅ **LEDs**: Sincronização funcionando
+- ✅ **LEDs**: Todos os estados implementados (Ready, Playing, Paused, Headset OFF, Signal Lost)
 - ✅ **Botões**: Controles físicos funcionando
+- ✅ **Teste de LEDs**: Interface Python completa para testar todos os comandos
 - 🔄 **Versão Unity**: Em desenvolvimento
 
 ## 📄 **Licença**

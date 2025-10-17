@@ -18,7 +18,7 @@ public class VRManager : MonoBehaviour
     public string videoFileName = "Pierre_Final.mp4";
 
     [Header("ESP32 Integration")]
-    public ESP32WebSocketClient esp32Client;
+    public CoralVivoVR.ESP32.ESP32WebSocketClient esp32Client;
 
     [Header("Debug")]
     public bool isPlaying = false;
