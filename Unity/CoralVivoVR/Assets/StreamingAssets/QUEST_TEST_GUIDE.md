@@ -107,8 +107,20 @@ pio run -t upload
 **Vídeo Principal:** `Pierre_Final.mp4`
 - **Duração:** 3 minutos e 35 segundos (215 segundos)
 - **Localização:** `StreamingAssets/Pierre_Final.mp4`
+- **URL no Editor:** `StreamingAssets/Pierre_Final.mp4`
+- **URL no Quest:** `file:///android_asset/StreamingAssets/Pierre_Final.mp4`
 - **Configuração:** Automática no script ESP32LEDTester
 - **Progresso LEDs:** Calculado baseado na duração de 215s
+
+### **⚠️ Importante - Caminho Android:**
+No Quest (Android), o VideoPlayer usa o prefixo `file://` para acessar StreamingAssets:
+```csharp
+#if UNITY_ANDROID && !UNITY_EDITOR
+    videoPlayer.url = "file://" + videoPath;
+#else
+    videoPlayer.url = videoPath;
+#endif
+```
 
 ### **Cálculo de Progresso:**
 - **0s**: 0% (LEDs apagados)

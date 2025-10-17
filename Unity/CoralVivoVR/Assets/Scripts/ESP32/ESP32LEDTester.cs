@@ -78,7 +78,18 @@ namespace CoralVivoVR.ESP32
             
             // Configurar vídeo Pierre_Final.mp4
             videoPlayer.source = VideoSource.Url;
-            videoPlayer.url = System.IO.Path.Combine(Application.streamingAssetsPath, "Pierre_Final.mp4");
+            
+            // Configurar URL correta para Android (Quest)
+            string videoPath = System.IO.Path.Combine(Application.streamingAssetsPath, "Pierre_Final.mp4");
+            
+            #if UNITY_ANDROID && !UNITY_EDITOR
+                // No Android (Quest), usar file:///
+                videoPlayer.url = "file://" + videoPath;
+            #else
+                // No Editor, usar caminho direto
+                videoPlayer.url = videoPath;
+            #endif
+            
             videoPlayer.playOnAwake = false;
             videoPlayer.isLooping = false;
             videoPlayer.renderMode = VideoRenderMode.RenderTexture;
@@ -87,7 +98,19 @@ namespace CoralVivoVR.ESP32
             videoPlayer.targetCameraAlpha = 1.0f;
             
             Debug.Log($"🎬 VideoPlayer configurado: {videoPlayer.url}");
+            Debug.Log($"🎬 Caminho original: {videoPath}");
             Debug.Log($"🎬 Duração do vídeo: 3m35s (215 segundos)");
+            
+            // Verificar se o arquivo existe
+            if (System.IO.File.Exists(videoPath))
+            {
+                Debug.Log($"✅ Arquivo de vídeo encontrado: {videoPath}");
+            }
+            else
+            {
+                Debug.LogError($"❌ Arquivo de vídeo NÃO encontrado: {videoPath}");
+                Debug.LogError($"❌ StreamingAssets path: {Application.streamingAssetsPath}");
+            }
         }
         
         private void Update()
@@ -247,9 +270,18 @@ namespace CoralVivoVR.ESP32
                 else
                 {
                     // Se não está tocando, iniciar
-                    videoPlayer.Play();
-                    SendPlayCommand();
-                    Debug.Log("🎬 Vídeo INICIADO");
+                    try
+                    {
+                        videoPlayer.Play();
+                        SendPlayCommand();
+                        Debug.Log("🎬 Vídeo INICIADO");
+                    }
+                    catch (System.Exception playError)
+                    {
+                        Debug.LogError($"❌ Erro ao iniciar vídeo: {playError.Message}");
+                        Debug.LogError($"❌ URL do vídeo: {videoPlayer.url}");
+                        Debug.LogError($"❌ Verifique se o arquivo existe e está no formato correto");
+                    }
                 }
             }
             catch (System.Exception e)
@@ -304,9 +336,18 @@ namespace CoralVivoVR.ESP32
                 }
                 else
                 {
-                    videoPlayer.Play();
-                    SendPlayCommand();
-                    Debug.Log("🎬 Player 2 INICIADO");
+                    try
+                    {
+                        videoPlayer.Play();
+                        SendPlayCommand();
+                        Debug.Log("🎬 Player 2 INICIADO");
+                    }
+                    catch (System.Exception playError)
+                    {
+                        Debug.LogError($"❌ Erro ao iniciar vídeo Player 2: {playError.Message}");
+                        Debug.LogError($"❌ URL do vídeo: {videoPlayer.url}");
+                        Debug.LogError($"❌ Verifique se o arquivo existe e está no formato correto");
+                    }
                 }
             }
             catch (System.Exception e)
