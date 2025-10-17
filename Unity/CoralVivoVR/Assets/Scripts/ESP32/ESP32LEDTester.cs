@@ -51,6 +51,11 @@ namespace CoralVivoVR.ESP32
         private bool wasVideoPlayingBeforeFocusLoss = false;
         private float videoTimeBeforeFocusLoss = 0f;
         
+        // Modo de simulação (quando vídeo não existe)
+        private bool isSimulationMode = false;
+        private float simulationStartTime = 0f;
+        private float simulationDuration = 215f; // 3m35s
+        
         
         private void Start()
         {
@@ -108,8 +113,13 @@ namespace CoralVivoVR.ESP32
             }
             else
             {
-                Debug.LogError($"❌ Arquivo de vídeo NÃO encontrado: {videoPath}");
-                Debug.LogError($"❌ StreamingAssets path: {Application.streamingAssetsPath}");
+                Debug.LogWarning($"⚠️ Arquivo de vídeo NÃO encontrado: {videoPath}");
+                Debug.LogWarning($"⚠️ StreamingAssets path: {Application.streamingAssetsPath}");
+                Debug.LogWarning($"⚠️ O vídeo será simulado com progresso baseado em tempo");
+                
+                // Configurar modo de simulação
+                videoPlayer.enabled = false;
+                isSimulationMode = true;
             }
         }
         
@@ -146,21 +156,41 @@ namespace CoralVivoVR.ESP32
         
         private void SyncVideoWithLEDs()
         {
-            if (videoPlayer != null && isConnected && videoPlayer.isPlaying)
+            if (isConnected)
             {
-                // Sincronizar progresso do vídeo com LEDs
-                // Duração do Pierre_Final.mp4: 3m35s = 215 segundos
-                float videoDuration = 215f; // 3 minutos e 35 segundos
-                float videoProgress = (float)(videoPlayer.time / videoDuration) * 100f;
+                float videoProgress = 0f;
                 
-                // Limitar progresso entre 0 e 100%
-                videoProgress = Mathf.Clamp(videoProgress, 0f, 100f);
+                if (isSimulationMode)
+                {
+                    // Modo de simulação - calcular progresso baseado no tempo
+                    if (isPlaying)
+                    {
+                        float elapsedTime = Time.time - simulationStartTime;
+                        videoProgress = (elapsedTime / simulationDuration) * 100f;
+                        videoProgress = Mathf.Clamp(videoProgress, 0f, 100f);
+                    }
+                }
+                else if (videoPlayer != null && videoPlayer.isPlaying)
+                {
+                    // Modo normal - usar VideoPlayer real
+                    float videoDuration = 215f; // 3 minutos e 35 segundos
+                    videoProgress = (float)(videoPlayer.time / videoDuration) * 100f;
+                    videoProgress = Mathf.Clamp(videoProgress, 0f, 100f);
+                }
                 
                 if (Mathf.Abs(videoProgress - progress) > 1f) // Só atualizar se diferença > 1%
                 {
                     progress = videoProgress;
                     SendProgressCommand(progress);
-                    Debug.Log($"🎬 Sincronizando vídeo: {progress:F1}% (Tempo: {videoPlayer.time:F1}s / {videoDuration}s)");
+                    
+                    if (isSimulationMode)
+                    {
+                        Debug.Log($"🎬 Simulando vídeo: {progress:F1}% (Tempo: {Time.time - simulationStartTime:F1}s / {simulationDuration}s)");
+                    }
+                    else
+                    {
+                        Debug.Log($"🎬 Sincronizando vídeo: {progress:F1}% (Tempo: {videoPlayer.time:F1}s / 215.0s)");
+                    }
                 }
             }
         }
@@ -252,41 +282,62 @@ namespace CoralVivoVR.ESP32
             // Botão 1 (Play/Pause) - Press Curto
             Debug.Log("🎮 Ação: Toggle Play/Pause para ambos players");
             
-            if (videoPlayer == null)
+            if (isSimulationMode)
+            {
+                // Modo de simulação
+                if (isPlaying)
+                {
+                    // Pausar simulação
+                    isPlaying = false;
+                    SendPauseCommand();
+                    Debug.Log("🎬 Simulação PAUSADA");
+                }
+                else
+                {
+                    // Iniciar simulação
+                    isPlaying = true;
+                    simulationStartTime = Time.time;
+                    SendPlayCommand();
+                    Debug.Log("🎬 Simulação INICIADA");
+                }
+            }
+            else if (videoPlayer == null)
             {
                 Debug.LogWarning("⚠️ VideoPlayer não configurado! Configure o VideoPlayer no Inspector.");
                 return;
             }
-            
-            try
+            else
             {
-                if (videoPlayer.isPlaying)
+                try
                 {
-                    // Se está tocando, pausar
-                    videoPlayer.Pause();
-                    SendPauseCommand();
-                    Debug.Log("🎬 Vídeo PAUSADO");
+                    if (videoPlayer.isPlaying)
+                    {
+                        // Se está tocando, pausar
+                        videoPlayer.Pause();
+                        SendPauseCommand();
+                        Debug.Log("🎬 Vídeo PAUSADO");
+                    }
+                    else
+                    {
+                        // Se não está tocando, iniciar
+                        try
+                        {
+                            videoPlayer.Play();
+                            SendPlayCommand();
+                            Debug.Log("🎬 Vídeo INICIADO");
+                        }
+                        catch (System.Exception playError)
+                        {
+                            Debug.LogError($"❌ Erro ao iniciar vídeo: {playError.Message}");
+                            Debug.LogError($"❌ URL do vídeo: {videoPlayer.url}");
+                            Debug.LogError($"❌ Verifique se o arquivo existe e está no formato correto");
+                        }
+                    }
                 }
-                else
+                catch (System.Exception e)
                 {
-                    // Se não está tocando, iniciar
-                    try
-                    {
-                        videoPlayer.Play();
-                        SendPlayCommand();
-                        Debug.Log("🎬 Vídeo INICIADO");
-                    }
-                    catch (System.Exception playError)
-                    {
-                        Debug.LogError($"❌ Erro ao iniciar vídeo: {playError.Message}");
-                        Debug.LogError($"❌ URL do vídeo: {videoPlayer.url}");
-                        Debug.LogError($"❌ Verifique se o arquivo existe e está no formato correto");
-                    }
+                    Debug.LogError($"❌ Erro ao controlar vídeo: {e.Message}");
                 }
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogError($"❌ Erro ao controlar vídeo: {e.Message}");
             }
         }
         
