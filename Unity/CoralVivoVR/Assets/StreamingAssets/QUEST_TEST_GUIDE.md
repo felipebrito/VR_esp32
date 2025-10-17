@@ -102,13 +102,19 @@ pio run -t upload
 - VR Supported: ✅
 - Virtual Reality SDKs: Oculus
 
-## 🎬 Vídeos
+## 🎬 Vídeo Configurado
 
-Coloque os vídeos na pasta `StreamingAssets/`:
-- Formato: MP4
-- Codec: H.264
-- Resolução: 1920x1080 ou menor
-- FPS: 30 ou 60
+**Vídeo Principal:** `Pierre_Final.mp4`
+- **Duração:** 3 minutos e 35 segundos (215 segundos)
+- **Localização:** `StreamingAssets/Pierre_Final.mp4`
+- **Configuração:** Automática no script ESP32LEDTester
+- **Progresso LEDs:** Calculado baseado na duração de 215s
+
+### **Cálculo de Progresso:**
+- **0s**: 0% (LEDs apagados)
+- **1m07s**: 50% (4 LEDs acesos)
+- **2m15s**: 100% (8 LEDs acesos)
+- **3m35s**: 100% (Fim do vídeo)
 
 ## 🔧 Configuração do Script
 

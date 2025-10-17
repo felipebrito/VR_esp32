@@ -56,10 +56,38 @@ namespace CoralVivoVR.ESP32
         {
             Debug.Log($"🎮 ESP32LEDTester iniciado - Player {playerID}");
             
+            // Configurar VideoPlayer automaticamente
+            SetupVideoPlayer();
+            
             if (autoConnect)
             {
                 ConnectToESP32();
             }
+        }
+        
+        private void SetupVideoPlayer()
+        {
+            if (videoPlayer == null)
+            {
+                videoPlayer = GetComponent<VideoPlayer>();
+                if (videoPlayer == null)
+                {
+                    videoPlayer = gameObject.AddComponent<VideoPlayer>();
+                }
+            }
+            
+            // Configurar vídeo Pierre_Final.mp4
+            videoPlayer.source = VideoSource.Url;
+            videoPlayer.url = System.IO.Path.Combine(Application.streamingAssetsPath, "Pierre_Final.mp4");
+            videoPlayer.playOnAwake = false;
+            videoPlayer.isLooping = false;
+            videoPlayer.renderMode = VideoRenderMode.RenderTexture;
+            
+            // Configurar para reproduzir em tela cheia
+            videoPlayer.targetCameraAlpha = 1.0f;
+            
+            Debug.Log($"🎬 VideoPlayer configurado: {videoPlayer.url}");
+            Debug.Log($"🎬 Duração do vídeo: 3m35s (215 segundos)");
         }
         
         private void Update()
@@ -98,11 +126,18 @@ namespace CoralVivoVR.ESP32
             if (videoPlayer != null && isConnected && videoPlayer.isPlaying)
             {
                 // Sincronizar progresso do vídeo com LEDs
-                float videoProgress = (float)(videoPlayer.time / videoPlayer.length) * 100f;
+                // Duração do Pierre_Final.mp4: 3m35s = 215 segundos
+                float videoDuration = 215f; // 3 minutos e 35 segundos
+                float videoProgress = (float)(videoPlayer.time / videoDuration) * 100f;
+                
+                // Limitar progresso entre 0 e 100%
+                videoProgress = Mathf.Clamp(videoProgress, 0f, 100f);
+                
                 if (Mathf.Abs(videoProgress - progress) > 1f) // Só atualizar se diferença > 1%
                 {
                     progress = videoProgress;
                     SendProgressCommand(progress);
+                    Debug.Log($"🎬 Sincronizando vídeo: {progress:F1}% (Tempo: {videoPlayer.time:F1}s / {videoDuration}s)");
                 }
             }
         }
