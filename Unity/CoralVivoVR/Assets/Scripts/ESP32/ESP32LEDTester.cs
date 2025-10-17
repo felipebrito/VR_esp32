@@ -266,14 +266,19 @@ namespace CoralVivoVR.ESP32
         
         private void SendHeadsetOffCommand()
         {
-            string command = $"off{playerID}";
+            // Headset Off = Signal Lost (Chase effect)
+            string command = $"signal_lost{playerID}";
+            if (playerID == 2)
+            {
+                command = $"signal_lost{playerID}"; // Player 2 = Chase por padrão
+            }
             SendCommand(command);
             isReady = false;
             isPlaying = false;
             isPaused = false;
             isHeadsetOff = true;
-            isSignalLost = false;
-            Debug.Log($"🔴 Player {playerID} - HEADSET OFF (Azul/Vermelho escuro progressivo)");
+            isSignalLost = true;
+            Debug.Log($"🏃 Player {playerID} - HEADSET OFF (Chase effect - perda de sinal)");
         }
         
         private void SendSignalLostCommand()
@@ -390,7 +395,7 @@ namespace CoralVivoVR.ESP32
             GUILayout.Label($"🟢 Ready: {(isReady ? "✅" : "❌")}");
             GUILayout.Label($"🔵 Playing: {(isPlaying ? "✅" : "❌")}");
             GUILayout.Label($"⏸️ Paused: {(isPaused ? "✅" : "❌")}");
-            GUILayout.Label($"🔴 Headset Off: {(isHeadsetOff ? "✅" : "❌")}");
+            GUILayout.Label($"🏃 Headset Off (Chase): {(isHeadsetOff ? "✅" : "❌")}");
             GUILayout.Label($"🌈 Signal Lost: {(isSignalLost ? "✅" : "❌")}");
             GUILayout.Space(10);
             
@@ -402,7 +407,7 @@ namespace CoralVivoVR.ESP32
             GUILayout.Label($"• P - Pause");
             GUILayout.Label($"• S - Stop (Chase)");
             GUILayout.Label($"• R - Ready");
-            GUILayout.Label($"• H - Headset Off");
+            GUILayout.Label($"• H - Headset Off (Chase)");
             GUILayout.Label($"• L - Signal Lost (Rainbow)");
             GUILayout.Label($"• ↑/↓ - Progresso");
             
