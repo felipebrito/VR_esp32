@@ -39,8 +39,7 @@ namespace CoralVivoVR.ESP32
         [SerializeField] private bool isConnected = false;
         private ClientWebSocket webSocket;
         
-        [Header("🎯 Controles de Teste")]
-        // Controles fixos: Space, P, S, R, H, L, ↑/↓
+        // 🎯 Controles de Teste: Space, P, S, R, H, L, ↑/↓
         
         private void Start()
         {
