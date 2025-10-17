@@ -221,7 +221,7 @@ namespace CoralVivoVR.ESP32
             isHeadsetOff = false;
             isSignalLost = false;
             isStopped = false;
-            Debug.Log($"🟢 Player {playerID} - READY (Verde piscando)");
+            Debug.Log($"🟢 Player {playerID} - PRONTO (Verde fixo)");
         }
         
         private void SendPlayCommand()
@@ -234,7 +234,7 @@ namespace CoralVivoVR.ESP32
             isHeadsetOff = false;
             isSignalLost = false;
             progress = 0f;
-            Debug.Log($"🔵 Player {playerID} - PLAYING (Azul/Vermelho progressivo automático)");
+            Debug.Log($"🔵 Player {playerID} - PLAY (Progressão azul/vermelho)");
         }
         
         private void SendPauseCommand()
@@ -251,29 +251,33 @@ namespace CoralVivoVR.ESP32
         
         private void SendStopCommand()
         {
-            // Stop = Desliga LEDs (off1/off2)
-            string command = $"off{playerID}";
+            // Stop (longpress) = Verde fixo (pronto)
+            string command = $"on{playerID}";
             SendCommand(command);
-            isReady = false;
+            isReady = true;
             isPlaying = false;
             isPaused = false;
             isHeadsetOff = false;
             isSignalLost = false;
-            isStopped = true;
-            Debug.Log($"🔴 Player {playerID} - STOP (LEDs desligados)");
+            isStopped = false;
+            Debug.Log($"🟢 Player {playerID} - STOP (Verde fixo - pronto)");
         }
         
         private void SendHeadsetOffCommand()
         {
-            // Headset Off = Pause (não desliga, apenas pausa)
-            string command = $"pause{playerID}";
+            // Headset Off ou parou cena Unity = Chase
+            string command = $"signal_lost{playerID}";
+            if (playerID == 2)
+            {
+                command = $"signal_lost{playerID}"; // Player 2 = Chase por padrão
+            }
             SendCommand(command);
             isReady = false;
             isPlaying = false;
-            isPaused = true;
+            isPaused = false;
             isHeadsetOff = true;
-            isSignalLost = false;
-            Debug.Log($"⏸️ Player {playerID} - HEADSET OFF (Pausado - Azul/Vermelho escuro)");
+            isSignalLost = true;
+            Debug.Log($"🏃 Player {playerID} - HEADSET OFF (Chase)");
         }
         
         private void SendSignalLostCommand()
@@ -294,7 +298,7 @@ namespace CoralVivoVR.ESP32
             isPaused = false;
             isHeadsetOff = false;
             isSignalLost = true;
-            Debug.Log($"🌈 Player {playerID} - SIGNAL LOST (Rainbow effect)");
+            Debug.Log($"🌈 Player {playerID} - PERDEU CONEXÃO (Rainbow)");
         }
         
         private void SendProgressCommand(float progressValue)
@@ -387,24 +391,24 @@ namespace CoralVivoVR.ESP32
             GUILayout.Space(10);
             
             GUILayout.Label($"🔗 Conectado: {(isConnected ? "✅" : "❌")}");
-            GUILayout.Label($"🟢 Ready: {(isReady ? "✅" : "❌")}");
-            GUILayout.Label($"🔵 Playing: {(isPlaying ? "✅" : "❌")}");
+            GUILayout.Label($"🟢 Pronto (Verde fixo): {(isReady ? "✅" : "❌")}");
+            GUILayout.Label($"🔵 Play (Progressão): {(isPlaying ? "✅" : "❌")}");
             GUILayout.Label($"⏸️ Paused: {(isPaused ? "✅" : "❌")}");
-            GUILayout.Label($"⏸️ Headset Off (Pause): {(isHeadsetOff ? "✅" : "❌")}");
-            GUILayout.Label($"🔴 Stop (Desligado): {(isStopped ? "✅" : "❌")}");
-            GUILayout.Label($"🌈 Signal Lost: {(isSignalLost ? "✅" : "❌")}");
+            GUILayout.Label($"🏃 Headset Off (Chase): {(isHeadsetOff ? "✅" : "❌")}");
+            GUILayout.Label($"🟢 Stop (Verde fixo): {(isStopped ? "✅" : "❌")}");
+            GUILayout.Label($"🌈 Perdeu Conexão (Rainbow): {(isSignalLost ? "✅" : "❌")}");
             GUILayout.Space(10);
             
             GUILayout.Label($"📊 Progresso: {progress:F1}%");
             GUILayout.Space(10);
             
             GUILayout.Label("🎮 Controles:", GUI.skin.box);
-            GUILayout.Label($"• Space - Play");
+            GUILayout.Label($"• Space - Play (Progressão azul/vermelho)");
             GUILayout.Label($"• P - Pause");
-            GUILayout.Label($"• S - Stop (Desliga LEDs)");
-            GUILayout.Label($"• R - Ready");
-            GUILayout.Label($"• H - Headset Off (Pause)");
-            GUILayout.Label($"• L - Signal Lost (Rainbow)");
+            GUILayout.Label($"• S - Stop (Verde fixo - pronto)");
+            GUILayout.Label($"• R - Pronto (Verde fixo)");
+            GUILayout.Label($"• H - Headset Off (Chase)");
+            GUILayout.Label($"• L - Perdeu Conexão (Rainbow)");
             GUILayout.Label($"• ↑/↓ - Progresso");
             
             GUILayout.Space(10);
