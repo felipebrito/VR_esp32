@@ -51,7 +51,6 @@ namespace CoralVivoVR.ESP32
         private bool wasVideoPlayingBeforeFocusLoss = false;
         private float videoTimeBeforeFocusLoss = 0f;
         
-        // 🎯 Controles de Teste: Space, P, S, R, H, L, ↑/↓
         
         private void Start()
         {
@@ -553,97 +552,9 @@ namespace CoralVivoVR.ESP32
         
         #region 🎯 Comandos Especiais
         
-        [ContextMenu("Test All Commands")]
-        public void TestAllCommands()
-        {
-            if (!isConnected)
-            {
-                Debug.LogWarning("⚠️ Não conectado ao ESP32");
-                return;
-            }
-            
-            StartCoroutine(TestAllCommandsCoroutine());
-        }
-        
-        private IEnumerator TestAllCommandsCoroutine()
-        {
-            Debug.Log("🧪 Iniciando teste de todos os comandos...");
-            
-            // Ready
-            SendReadyCommand();
-            yield return new WaitForSeconds(2f);
-            
-            // Play
-            SendPlayCommand();
-            yield return new WaitForSeconds(3f);
-            
-            // Pause
-            SendPauseCommand();
-            yield return new WaitForSeconds(2f);
-            
-            // Headset Off
-            SendHeadsetOffCommand();
-            yield return new WaitForSeconds(2f);
-            
-            // Signal Lost
-            SendSignalLostCommand();
-            yield return new WaitForSeconds(3f);
-            
-            // Stop (Chase)
-            SendStopCommand();
-            yield return new WaitForSeconds(3f);
-            
-            // Reset
-            SendReadyCommand();
-            
-            Debug.Log("✅ Teste de comandos concluído!");
-        }
         
         #endregion
         
-        #region 🎮 Interface
-        
-        private void OnGUI()
-        {
-            if (!isConnected) return;
-            
-            GUILayout.BeginArea(new Rect(10, 10, 300, 400));
-            
-            GUILayout.Label($"🎮 ESP32 LED Tester - Player {playerID}", GUI.skin.box);
-            GUILayout.Space(10);
-            
-            GUILayout.Label($"🔗 Conectado: {(isConnected ? "✅" : "❌")}");
-            GUILayout.Label($"🟢 Pronto (Verde fixo): {(isReady ? "✅" : "❌")}");
-            GUILayout.Label($"🔵 Play (Progressão): {(isPlaying ? "✅" : "❌")}");
-            GUILayout.Label($"⏸️ Paused: {(isPaused ? "✅" : "❌")}");
-            GUILayout.Label($"🏃 Headset Off (Chase): {(isHeadsetOff ? "✅" : "❌")}");
-            GUILayout.Label($"🟢 Stop (Verde fixo): {(isStopped ? "✅" : "❌")}");
-            GUILayout.Label($"🌈 Perdeu Conexão (Rainbow): {(isSignalLost ? "✅" : "❌")}");
-            GUILayout.Space(10);
-            
-            GUILayout.Label($"📊 Progresso: {progress:F1}%");
-            GUILayout.Space(10);
-            
-            GUILayout.Label("🎮 Controles:", GUI.skin.box);
-            GUILayout.Label($"• Space - Play (Progressão azul/vermelho)");
-            GUILayout.Label($"• P - Pause");
-            GUILayout.Label($"• S - Stop (Verde fixo - pronto)");
-            GUILayout.Label($"• R - Pronto (Verde fixo)");
-            GUILayout.Label($"• H - Headset Off (Chase)");
-            GUILayout.Label($"• L - Perdeu Conexão (Rainbow)");
-            GUILayout.Label($"• ↑/↓ - Progresso");
-            
-            GUILayout.Space(10);
-            
-            if (GUILayout.Button("🧪 Testar Todos os Comandos"))
-            {
-                TestAllCommands();
-            }
-            
-            GUILayout.EndArea();
-        }
-        
-        #endregion
         
         #region 🧹 Cleanup
         
