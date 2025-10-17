@@ -30,6 +30,7 @@ namespace CoralVivoVR.ESP32
         [SerializeField] private bool isPaused = false;
         [SerializeField] private bool isHeadsetOff = false;
         [SerializeField] private bool isSignalLost = false;
+        [SerializeField] private bool isStopped = false;
         
         [Header("📊 Progresso")]
         [Range(0, 100)]
@@ -219,6 +220,7 @@ namespace CoralVivoVR.ESP32
             isPaused = false;
             isHeadsetOff = false;
             isSignalLost = false;
+            isStopped = false;
             Debug.Log($"🟢 Player {playerID} - READY (Verde piscando)");
         }
         
@@ -249,19 +251,16 @@ namespace CoralVivoVR.ESP32
         
         private void SendStopCommand()
         {
-            // Stop = Signal Lost (Chase effect)
-            string command = $"signal_lost{playerID}";
-            if (playerID == 2)
-            {
-                command = $"signal_lost{playerID}"; // Player 2 = Chase por padrão
-            }
+            // Stop = Desliga LEDs (off1/off2)
+            string command = $"off{playerID}";
             SendCommand(command);
             isReady = false;
             isPlaying = false;
             isPaused = false;
             isHeadsetOff = false;
-            isSignalLost = true;
-            Debug.Log($"🏃 Player {playerID} - SIGNAL LOST (Chase effect)");
+            isSignalLost = false;
+            isStopped = true;
+            Debug.Log($"🔴 Player {playerID} - STOP (LEDs desligados)");
         }
         
         private void SendHeadsetOffCommand()
@@ -392,6 +391,7 @@ namespace CoralVivoVR.ESP32
             GUILayout.Label($"🔵 Playing: {(isPlaying ? "✅" : "❌")}");
             GUILayout.Label($"⏸️ Paused: {(isPaused ? "✅" : "❌")}");
             GUILayout.Label($"⏸️ Headset Off (Pause): {(isHeadsetOff ? "✅" : "❌")}");
+            GUILayout.Label($"🔴 Stop (Desligado): {(isStopped ? "✅" : "❌")}");
             GUILayout.Label($"🌈 Signal Lost: {(isSignalLost ? "✅" : "❌")}");
             GUILayout.Space(10);
             
@@ -401,7 +401,7 @@ namespace CoralVivoVR.ESP32
             GUILayout.Label("🎮 Controles:", GUI.skin.box);
             GUILayout.Label($"• Space - Play");
             GUILayout.Label($"• P - Pause");
-            GUILayout.Label($"• S - Stop (Chase)");
+            GUILayout.Label($"• S - Stop (Desliga LEDs)");
             GUILayout.Label($"• R - Ready");
             GUILayout.Label($"• H - Headset Off (Pause)");
             GUILayout.Label($"• L - Signal Lost (Rainbow)");
