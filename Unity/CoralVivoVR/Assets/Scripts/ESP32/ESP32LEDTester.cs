@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 
 namespace CoralVivoVR.ESP32
 {
@@ -39,12 +40,7 @@ namespace CoralVivoVR.ESP32
         private ClientWebSocket webSocket;
         
         [Header("🎯 Controles de Teste")]
-        [SerializeField] private KeyCode playKey = KeyCode.Space;
-        [SerializeField] private KeyCode pauseKey = KeyCode.P;
-        [SerializeField] private KeyCode stopKey = KeyCode.S;
-        [SerializeField] private KeyCode readyKey = KeyCode.R;
-        [SerializeField] private KeyCode headsetOffKey = KeyCode.H;
-        [SerializeField] private KeyCode signalLostKey = KeyCode.L;
+        // Controles fixos: Space, P, S, R, H, L, ↑/↓
         
         private void Start()
         {
@@ -142,45 +138,48 @@ namespace CoralVivoVR.ESP32
         {
             if (!isConnected) return;
             
+            var keyboard = Keyboard.current;
+            if (keyboard == null) return;
+            
             // Controles principais
-            if (Input.GetKeyDown(playKey))
+            if (keyboard.spaceKey.wasPressedThisFrame)
             {
                 SendPlayCommand();
             }
             
-            if (Input.GetKeyDown(pauseKey))
+            if (keyboard.pKey.wasPressedThisFrame)
             {
                 SendPauseCommand();
             }
             
-            if (Input.GetKeyDown(stopKey))
+            if (keyboard.sKey.wasPressedThisFrame)
             {
                 SendStopCommand();
             }
             
-            if (Input.GetKeyDown(readyKey))
+            if (keyboard.rKey.wasPressedThisFrame)
             {
                 SendReadyCommand();
             }
             
-            if (Input.GetKeyDown(headsetOffKey))
+            if (keyboard.hKey.wasPressedThisFrame)
             {
                 SendHeadsetOffCommand();
             }
             
-            if (Input.GetKeyDown(signalLostKey))
+            if (keyboard.lKey.wasPressedThisFrame)
             {
                 SendSignalLostCommand();
             }
             
             // Controles de progresso
-            if (Input.GetKey(KeyCode.UpArrow))
+            if (keyboard.upArrowKey.isPressed)
             {
                 progress = Mathf.Min(100f, progress + Time.deltaTime * 50f);
                 SendProgressCommand(progress);
             }
             
-            if (Input.GetKey(KeyCode.DownArrow))
+            if (keyboard.downArrowKey.isPressed)
             {
                 progress = Mathf.Max(0f, progress - Time.deltaTime * 50f);
                 SendProgressCommand(progress);
@@ -400,12 +399,12 @@ namespace CoralVivoVR.ESP32
             GUILayout.Space(10);
             
             GUILayout.Label("🎮 Controles:", GUI.skin.box);
-            GUILayout.Label($"• {playKey} - Play");
-            GUILayout.Label($"• {pauseKey} - Pause");
-            GUILayout.Label($"• {stopKey} - Stop (Chase)");
-            GUILayout.Label($"• {readyKey} - Ready");
-            GUILayout.Label($"• {headsetOffKey} - Headset Off");
-            GUILayout.Label($"• {signalLostKey} - Signal Lost (Rainbow)");
+            GUILayout.Label($"• Space - Play");
+            GUILayout.Label($"• P - Pause");
+            GUILayout.Label($"• S - Stop (Chase)");
+            GUILayout.Label($"• R - Ready");
+            GUILayout.Label($"• H - Headset Off");
+            GUILayout.Label($"• L - Signal Lost (Rainbow)");
             GUILayout.Label($"• ↑/↓ - Progresso");
             
             GUILayout.Space(10);
