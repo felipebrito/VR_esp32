@@ -108,6 +108,7 @@ void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsE
 void handleWebSocketMessage(uint8_t clientNum, char* message);
 void handlePlayerDisconnect(uint8_t clientNum);
 void sendCommandToPlayer(int playerId, String command);
+void sendButtonEventToUnity(String event);
 void handleButtons();
 void handleButton(int pin, ButtonState* button, void (*onPress)(), void (*onLongPress)());
 void cycleEffect();
@@ -544,6 +545,25 @@ void sendCommandToPlayer(int playerId, String command) {
   }
 }
 
+void sendButtonEventToUnity(String event) {
+  Serial.println("=== SEND BUTTON EVENT TO UNITY ===");
+  Serial.printf("EVENT: Enviando evento de botão '%s' para Unity\n", event.c_str());
+  
+  // Verificar clientes conectados
+  Serial.printf("Total de clientes WebSocket conectados: %d\n", ws.getClients().size());
+  
+  // Enviar evento se houver pelo menos um cliente conectado
+  if (ws.getClients().size() > 0) {
+    Serial.println("Enviando evento de botão para todos os clientes conectados...");
+    ws.textAll(event);
+    Serial.printf("Evento '%s' enviado com sucesso para Unity!\n", event.c_str());
+  } else {
+    Serial.println("Nenhum cliente conectado - evento de botão não enviado");
+  }
+  
+  Serial.println("=== SEND BUTTON EVENT FINALIZADA ===");
+}
+
 void handleButtons() {
   // Debug: verificar estado dos pinos
   static unsigned long lastDebugTime = 0;
@@ -556,111 +576,181 @@ void handleButtons() {
   
   handleButton(BUTTON_PLAY_PAUSE, &buttonPlayPause, []() {
     // Short press: toggle play/pause for both players
-    DEBUG_PRINTLN("=== BUTTON 1 PRESSED ===");
-    DEBUG_PRINTLN("Button 1 pressed - toggling play/pause");
-    Serial.printf("Current time: %lu\n", millis());
+    Serial.println("🎮 ==========================================");
+    Serial.println("🎮 BOTÃO 1 (PLAY/PAUSE) - PRESS CURTO");
+    Serial.println("🎮 ==========================================");
+    Serial.printf("🎮 Tempo atual: %lu ms\n", millis());
+    
+    // Enviar evento para Unity
+    sendButtonEventToUnity("button1_short_press");
     
     for (int i = 0; i < 2; i++) {
-      Serial.printf("Player %d state: %d\n", i + 1, players[i].state);
+      Serial.printf("🎮 Player %d - Estado atual: %d (", i + 1, players[i].state);
+      switch(players[i].state) {
+        case DISCONNECTED: Serial.print("DISCONNECTED"); break;
+        case CONNECTED: Serial.print("CONNECTED"); break;
+        case READY: Serial.print("READY"); break;
+        case PLAYING: Serial.print("PLAYING"); break;
+        case PAUSED: Serial.print("PAUSED"); break;
+        case PAUSED_BY_HEADSET: Serial.print("PAUSED_BY_HEADSET"); break;
+        case SIGNAL_LOST: Serial.print("SIGNAL_LOST"); break;
+        default: Serial.print("UNKNOWN"); break;
+      }
+      Serial.printf("), Progresso: %.1f%%\n", players[i].progress * 100);
       
       if (players[i].state == PLAYING) {
         players[i].state = PAUSED;
         sendCommandToPlayer(i + 1, "pause");
-        Serial.printf("Player %d paused\n", i + 1);
+        Serial.printf("🎮 Player %d -> PAUSED\n", i + 1);
       } else if (players[i].state == PAUSED) {
         // Resume from where it was paused
         players[i].state = PLAYING;
         players[i].lastUpdate = millis() - (players[i].progress * 5000); // Adjust timer to continue from paused position
         sendCommandToPlayer(i + 1, "play");
-        Serial.printf("Player %d resumed\n", i + 1);
+        Serial.printf("🎮 Player %d -> RESUMED (%.1f%%)\n", i + 1, players[i].progress * 100);
       } else if (players[i].state == READY) {
         // Start new playback
         players[i].state = PLAYING;
         players[i].progress = 0.0;
         players[i].lastUpdate = millis();
         sendCommandToPlayer(i + 1, "play");
-        Serial.printf("Player %d started\n", i + 1);
+        Serial.printf("🎮 Player %d -> STARTED\n", i + 1);
+      } else {
+        Serial.printf("🎮 Player %d -> NO ACTION (estado não suportado)\n", i + 1);
       }
     }
-    Serial.println("=== BUTTON 1 PROCESSED ===");
+    Serial.println("🎮 ==========================================");
   }, []() {
     // Long press: stop all players and turn off LEDs
-    Serial.println("=== BUTTON 1 LONG PRESS ===");
-    Serial.println("Button 1 long press - stopping all players");
+    Serial.println("🎮 ==========================================");
+    Serial.println("🎮 BOTÃO 1 (PLAY/PAUSE) - LONG PRESS");
+    Serial.println("🎮 ==========================================");
+    Serial.printf("🎮 Tempo atual: %lu ms\n", millis());
+    
+    // Enviar evento para Unity
+    sendButtonEventToUnity("button1_long_press");
+    
     for (int i = 0; i < 2; i++) {
+      Serial.printf("🎮 Player %d - Estado antes: %d -> DISCONNECTED\n", i + 1, players[i].state);
       players[i].state = DISCONNECTED;
       players[i].connected = false;
       players[i].progress = 0.0;
       sendCommandToPlayer(i + 1, "stop");
     }
-    Serial.println("All players stopped and LEDs turned off");
-    Serial.println("=== BUTTON 1 LONG PRESS PROCESSED ===");
+    Serial.println("🎮 Todos os players parados e LEDs desligados");
+    Serial.println("🎮 ==========================================");
   });
   
   handleButton(BUTTON_EFFECT_STOP, &buttonEffectStop, []() {
     // Short press: control Player 2 (play/pause)
-    Serial.println("=== BUTTON 2 PRESSED ===");
-    Serial.println("Button 2 pressed - controlling Player 2");
+    Serial.println("🎮 ==========================================");
+    Serial.println("🎮 BOTÃO 2 (EFFECT/STOP) - PRESS CURTO");
+    Serial.println("🎮 ==========================================");
+    Serial.printf("🎮 Tempo atual: %lu ms\n", millis());
+    
+    // Enviar evento para Unity
+    sendButtonEventToUnity("button2_short_press");
+    
+    Serial.printf("🎮 Player 2 - Estado atual: %d (", players[1].state);
+    switch(players[1].state) {
+      case DISCONNECTED: Serial.print("DISCONNECTED"); break;
+      case CONNECTED: Serial.print("CONNECTED"); break;
+      case READY: Serial.print("READY"); break;
+      case PLAYING: Serial.print("PLAYING"); break;
+      case PAUSED: Serial.print("PAUSED"); break;
+      case PAUSED_BY_HEADSET: Serial.print("PAUSED_BY_HEADSET"); break;
+      case SIGNAL_LOST: Serial.print("SIGNAL_LOST"); break;
+      default: Serial.print("UNKNOWN"); break;
+    }
+    Serial.printf("), Progresso: %.1f%%\n", players[1].progress * 100);
+    
     if (players[1].state == PLAYING) {
       players[1].state = PAUSED;
       sendCommandToPlayer(2, "pause");
-      Serial.println("Player 2 paused");
+      Serial.println("🎮 Player 2 -> PAUSED");
     } else if (players[1].state == PAUSED) {
       // Resume from where it was paused
       players[1].state = PLAYING;
       players[1].lastUpdate = millis() - (players[1].progress * 5000);
       sendCommandToPlayer(2, "play");
-      Serial.println("Player 2 resumed");
+      Serial.printf("🎮 Player 2 -> RESUMED (%.1f%%)\n", players[1].progress * 100);
     } else if (players[1].state == READY) {
       // Start new playback
       players[1].state = PLAYING;
       players[1].progress = 0.0;
       players[1].lastUpdate = millis();
       sendCommandToPlayer(2, "play");
-      Serial.println("Player 2 started");
+      Serial.println("🎮 Player 2 -> STARTED");
+    } else {
+      Serial.println("🎮 Player 2 -> NO ACTION (estado não suportado)");
     }
-    Serial.println("=== BUTTON 2 PROCESSED ===");
+    Serial.println("🎮 ==========================================");
   }, []() {
     // Long press: reset all players and turn off LEDs
-    Serial.println("=== BUTTON 2 LONG PRESS ===");
-    Serial.println("Button 2 long press - resetting all players");
+    Serial.println("🎮 ==========================================");
+    Serial.println("🎮 BOTÃO 2 (EFFECT/STOP) - LONG PRESS");
+    Serial.println("🎮 ==========================================");
+    Serial.printf("🎮 Tempo atual: %lu ms\n", millis());
+    
+    // Enviar evento para Unity
+    sendButtonEventToUnity("button2_long_press");
+    
     for (int i = 0; i < 2; i++) {
+      Serial.printf("🎮 Player %d - Estado antes: %d -> DISCONNECTED\n", i + 1, players[i].state);
       players[i].state = DISCONNECTED;
       players[i].connected = false;
       players[i].progress = 0.0;
       sendCommandToPlayer(i + 1, "stop");
     }
-    Serial.println("All players reset and LEDs turned off");
-    Serial.println("=== BUTTON 2 LONG PRESS PROCESSED ===");
+    Serial.println("🎮 Todos os players resetados e LEDs desligados");
+    Serial.println("🎮 ==========================================");
   });
 }
 
 void handleButton(int pin, ButtonState* button, void (*onPress)(), void (*onLongPress)()) {
   bool reading = !digitalRead(pin); // Inverted because of pull-up
+  static unsigned long lastButtonDebug = 0;
+  
+  // Debug periódico do estado dos botões
+  if (millis() - lastButtonDebug > 2000) { // A cada 2 segundos
+    Serial.printf("🔍 BOTÃO DEBUG - Pino %d: Raw=%d, Inverted=%d, Pressed=%d, LastPressed=%d\n", 
+                  pin, digitalRead(pin), reading, button->pressed, button->lastPressed);
+    lastButtonDebug = millis();
+  }
   
   if (reading != button->lastPressed) {
     button->lastDebounceTime = millis();
+    Serial.printf("🔍 BOTÃO %d - Mudança detectada: %d -> %d (debounce iniciado)\n", 
+                  pin, button->lastPressed, reading);
   }
   
   if ((millis() - button->lastDebounceTime) > DEBOUNCE_DELAY) {
     if (reading != button->pressed) {
       button->pressed = reading;
+      Serial.printf("🔍 BOTÃO %d - Estado confirmado: %s\n", 
+                    pin, button->pressed ? "PRESSIONADO" : "SOLTO");
       
       if (button->pressed) {
         button->pressTime = millis();
         button->longPressDetected = false;
+        Serial.printf("🔍 BOTÃO %d - Press iniciado em %lu\n", pin, button->pressTime);
         onPress();
       } else {
         button->longPressDetected = false;
+        Serial.printf("🔍 BOTÃO %d - Press finalizado\n", pin);
       }
     }
   }
   
   // Check for long press
   if (button->pressed && !button->longPressDetected && onLongPress) {
-    if ((millis() - button->pressTime) > LONG_PRESS_TIME) {
+    unsigned long pressDuration = millis() - button->pressTime;
+    if (pressDuration > LONG_PRESS_TIME) {
       button->longPressDetected = true;
+      Serial.printf("🔍 BOTÃO %d - LONG PRESS detectado após %lu ms\n", pin, pressDuration);
       onLongPress();
+    } else if (pressDuration > 500) { // Log a cada 500ms durante press
+      Serial.printf("🔍 BOTÃO %d - Press contínuo: %lu ms\n", pin, pressDuration);
     }
   }
   

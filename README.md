@@ -1,168 +1,154 @@
-# 🥽 CoralVivoVR - Sistema VR Completo
+# 🎬 CoralVivoVR - Sistema de Controle de Vídeo com ESP32
 
-Sistema completo de realidade virtual para Meta Quest 3S com sincronização ESP32 para LEDs e controles físicos.
+Sistema completo de controle de vídeo VR com LEDs sincronizados via ESP32 e botões físicos.
 
-## 🎯 **Arquitetura Dual**
+## 🚀 Funcionalidades
 
-### **Versão Desktop (Funcionando)**
-- Aplicação web com Three.js
-- Player 360° com controles drag
-- WebSocket para ESP32
-- Teste e desenvolvimento
+### 🎮 Controle via Botões ESP32
+- **Botão 1 (Press Curto)**: Play/Pause do vídeo
+- **Botão 1 (Long Press)**: Reset do vídeo
+- **Botão 2**: Mesmo comportamento do Botão 1
+- **Comunicação bidirecional**: ESP32 ↔ Unity
 
-### **Versão Unity (Em Desenvolvimento)**
-- Aplicação Unity nativa para Quest
-- APK instalável no Quest 3S
-- Performance otimizada
-- Controles VR nativos
+### 🎬 Controle de Vídeo
+- **Play/Pause** sincronizado com LEDs
+- **Reset** para início do vídeo
+- **Restauração de estado** ao voltar do foco
+- **Progresso sincronizado** com LEDs
 
-### **ESP32 (Comum)**
-- Rede WiFi: "CoralVivoVR" (senha: 12345678)
-- IP fixo: 192.168.0.1
-- WebSocket Server para comunicação
-- 16 LEDs + 2 botões físicos
+### 💡 LEDs Sincronizados
+- **PRONTO**: Verde fixo (início/reset)
+- **PLAYING**: Progressão azul/vermelho (vídeo tocando)
+- **PAUSED**: Azul/Vermelho escuro (vídeo pausado)
+- **CHASE**: Efeito chase (perda de foco/conexão)
 
-## 📁 **Estrutura do Projeto**
+## 📁 Estrutura do Projeto
 
 ```
-CoralVivoVR/
-├── src/main.cpp              # ESP32 firmware (P2P + WebSocket)
-├── platformio.ini            # Configuração PlatformIO
-├── Pierre_Final.mov          # Vídeo 360° principal
-├── VIDEO_PLACEHOLDER.md      # Instruções do vídeo
-├── README.md                 # Este arquivo
-└── web_player/               # Versão Desktop (funcionando)
-    ├── index.html            # Interface principal
-    ├── styles.css            # Estilos
-    ├── video-player.js       # Player 360° Three.js
-    ├── websocket-client.js   # Cliente WebSocket ESP32
-    ├── led-visualizer.js     # Visualização LEDs
-    ├── main.js               # Integração principal
-    ├── README.md             # Documentação web
-    └── VIDEO_SAMPLES.md      # Exemplos de vídeo
+BIJARI_VR/
+├── src/                    # Firmware ESP32
+│   └── main.cpp           # Código principal ESP32
+├── Unity/                 # Projeto Unity
+│   └── CoralVivoVR/
+│       ├── Assets/
+│       │   ├── Scripts/
+│       │   │   └── ESP32/
+│       │   │       └── ESP32LEDTester.cs  # Script principal
+│       │   └── StreamingAssets/          # Vídeos (adicionar manualmente)
+│       └── Scenes/
+│           └── passoapasso.unity        # Cena de teste
+├── platformio.ini         # Configuração PlatformIO
+└── README.md             # Este arquivo
 ```
 
-## 🚀 **Versão Desktop (Pronta)**
+## 🔧 Configuração
 
-### **Como usar:**
-1. **Compilar ESP32**: `pio run -t upload`
-2. **Servidor local**: `cd web_player && python3 -m http.server 8000`
-3. **Acessar**: `http://localhost:8000`
-4. **Conectar ESP32**: IP 192.168.0.1
-5. **Carregar vídeo**: Pierre_Final.mov
+### ESP32 (Firmware)
+1. **Conecte ESP32** via USB
+2. **Compile e faça upload**:
+   ```bash
+   pio run --target upload
+   ```
+3. **ESP32 cria hotspot**: `CoralVivoVR` (senha: `12345678`)
 
-### **Funcionalidades:**
-- ✅ **Player 360°** com Three.js
-- ✅ **Controles drag** para navegação
-- ✅ **WebSocket ESP32** funcionando
-- ✅ **LEDs sincronizados** com progresso
-- ✅ **Botões físicos** controlando reprodução
-- ✅ **Interface completa** de debug
+### Unity (Aplicação)
+1. **Abra Unity** e carregue o projeto em `Unity/CoralVivoVR/`
+2. **Abra a cena** `passoapasso` em `Assets/Scenes/`
+3. **Configure VideoPlayer**:
+   - Adicione vídeo em `StreamingAssets/`
+   - Configure URL no VideoPlayer
+4. **Execute a cena**
 
-## 🎮 **Versão Unity (Em Desenvolvimento)**
+### Vídeos
+1. **Adicione vídeos** em `Unity/CoralVivoVR/Assets/StreamingAssets/`
+2. **Formato recomendado**: MP4
+3. **Configure URL** no VideoPlayer: `file://{Application.streamingAssetsPath}/seu_video.mp4`
 
-### **Próximos Passos:**
-1. **Criar projeto Unity** com template VR
-2. **Instalar pacotes XR** (Oculus, XR Interaction Toolkit)
-3. **Implementar scripts** para ESP32 e vídeo 360°
-4. **Configurar build** para Quest 3S
-5. **Gerar APK** instalável
+## 🎯 Estados dos LEDs
 
-### **Scripts Planejados:**
-- `ESP32WebSocketClient.cs` - Comunicação com ESP32
-- `Video360Player.cs` - Player de vídeo 360° com esfera customizada
-- `CoralVivoVRManager.cs` - Gerenciamento principal do sistema
+| Estado | Comando ESP32 | LEDs | Quando |
+|--------|---------------|------|--------|
+| **DISCONNECTED** | - | Roxo piscando | Sem conexão |
+| **READY** | `on1`/`on2` | Verde piscando | Pronto |
+| **PLAYING** | `play1`/`play2` | Progressão azul/vermelho | Vídeo tocando |
+| **PAUSED** | `pause1`/`pause2` | Azul/Vermelho escuro | Vídeo pausado |
+| **SIGNAL_LOST** | `signal_lost1`/`signal_lost2` | Chase | Perda de conexão |
 
-## 🔧 **ESP32 Firmware**
+## 🔄 Comandos WebSocket
 
-### **Configuração Atual:**
-- **Rede**: "CoralVivoVR" (senha: 12345678)
-- **IP**: 192.168.0.1
-- **WebSocket**: Porta 80
-- **LEDs**: 16 WS2812B (8 para cada player)
-- **Botões**: 2 botões físicos (play/pause/stop)
+### Unity → ESP32
+- `on1`/`on2`: Estado pronto
+- `play1`/`play2`: Iniciar vídeo
+- `pause1`/`pause2`: Pausar vídeo
+- `led1:X`/`led2:X`: Progresso X%
+- `signal_lost1`/`signal_lost2`: Perda de sinal
 
-### **Estados dos LEDs:**
-- **🟢 READY**: Verde piscando
-- **🔵 PLAYING**: Azul progressivo (Player 1) / Vermelho progressivo (Player 2)
-- **⏸️ PAUSED**: Azul escuro (Player 1) / Vermelho escuro (Player 2)
-- **🔴 HEADSET OFF**: Azul escuro progressivo (Player 1) / Vermelho escuro progressivo (Player 2)
-- **🌈 SIGNAL LOST**: Rainbow effect (Player 1) / Chase effect (Player 2)
+### ESP32 → Unity
+- `button1_short_press`: Botão 1 pressionado
+- `button1_long_press`: Botão 1 long press
+- `button2_short_press`: Botão 2 pressionado
+- `button2_long_press`: Botão 2 long press
 
-### **Comandos WebSocket:**
-- **String simples**: `on1`/`on2`, `play1`/`play2`, `pause1`/`pause2`, `off1`/`off2`
-- **Progresso**: `led1:X`/`led2:X` (X = 0-100)
-- **Perda de sinal**: `signal_lost1`/`signal_lost2`, `signal_lost1:chase`/`signal_lost2:rainbow`
-- **JSON**: `{"player":1,"status":"playing","progress":0.5}`
+## 🎮 Controles de Teste (Unity)
 
-### **Compilar e Upload:**
-```bash
-pio run -t upload
+| Tecla | Ação |
+|-------|------|
+| **Space** | Play |
+| **P** | Pause |
+| **S** | Stop |
+| **R** | Ready |
+| **H** | Headset Off |
+| **L** | Signal Lost |
+| **↑/↓** | Progresso |
+
+## 📊 Logs de Debug
+
+### Unity Console
+```
+🎮 BOTÃO 1 (ESP32) - Press Curto detectado!
+🎬 Vídeo INICIADO
+🔵 Player 2 - PLAY (Progressão azul/vermelho)
 ```
 
-### **Teste de LEDs:**
-```bash
-python3 led_test.py
+### ESP32 Serial Monitor
+```
+🎮 BOTÃO 1 (PLAY/PAUSE) - PRESS CURTO
+🏃 Player 1 signal lost - chase effect
 ```
 
-## 🎮 **Funcionalidades Completas**
+## 🔧 Hardware
 
-### **Desktop (Three.js):**
-- ✅ Player 360° estereoscópico
-- ✅ Controles drag para navegação
-- ✅ Detecção automática headset on/off
-- ✅ Navegação com mouse/touch
+### ESP32
+- **Pinos LED**: GPIO 2
+- **Botão 1**: GPIO 4 (Play/Pause)
+- **Botão 2**: GPIO 5 (Effect/Stop)
+- **LEDs**: 16 LEDs (8 por player)
 
-### **Unity (Planejado):**
-- ✅ Player 360° estereoscópico
-- ✅ Controles Quest nativos
-- ✅ Detecção automática headset on/off
-- ✅ Navegação com controles Quest
+### Conexões
+- **LEDs**: Pino 2 → Fita LED WS2812B
+- **Botões**: GPIO 4,5 → Botões com pull-up interno
 
-### **ESP32 Integration (Ambas):**
-- ✅ Rede P2P dedicada "CoralVivoVR"
-- ✅ WebSocket Server (porta 80)
-- ✅ 16 LEDs sincronizados com progresso
-- ✅ 2 botões físicos (play/pause/stop)
-- ✅ Detecção headset via WebSocket
+## 🚀 Status Atual
 
-### **Sincronização (Ambas):**
-- ✅ LEDs mostram progresso do vídeo
-- ✅ Botões ESP32 controlam reprodução
-- ✅ Headset on/off pausa automaticamente
-- ✅ Comunicação bidirecional WebSocket
+- ✅ **ESP32 Firmware**: Completo com todos os estados
+- ✅ **Unity Script**: Controle completo de vídeo
+- ✅ **Comunicação Bidirecional**: ESP32 ↔ Unity
+- ✅ **Controle de Botões**: Play/Pause/Reset
+- ✅ **Sincronização LEDs**: Estados sincronizados
+- ✅ **Restauração de Estado**: Continua de onde parou
+- ✅ **Thread Safety**: Sem erros de thread
 
-## 📋 **TODO List Unity**
+## 📝 Próximos Passos
 
-### **Fase 1: Setup Unity**
-- [ ] Criar projeto Unity VR
-- [ ] Instalar pacotes XR/Oculus
-- [ ] Configurar para Quest 3S
+1. **Adicionar vídeos** em StreamingAssets
+2. **Configurar VideoPlayer** na cena
+3. **Testar** com botões ESP32
+4. **Personalizar** comportamentos conforme necessário
 
-### **Fase 2: Scripts Core**
-- [ ] ESP32WebSocketClient.cs
-- [ ] Video360Player.cs
-- [ ] CoralVivoVRManager.cs
+## 🎬 Cena de Teste
 
-### **Fase 3: Build e Teste**
-- [ ] Configurar build Android
-- [ ] Gerar APK para Quest
-- [ ] Testar sistema completo
-
-## 🎯 **Status Atual**
-
-- ✅ **Versão Desktop**: Funcionando perfeitamente
-- ✅ **ESP32 Firmware**: Funcionando perfeitamente com todos os estados
-- ✅ **WebSocket**: Comunicação bidirecional funcionando
-- ✅ **LEDs**: Todos os estados implementados (Ready, Playing, Paused, Headset OFF, Signal Lost)
-- ✅ **Botões**: Controles físicos funcionando
-- ✅ **Teste de LEDs**: Interface Python completa para testar todos os comandos
-- 🔄 **Versão Unity**: Em desenvolvimento
-
-## 📄 **Licença**
-
-Projeto desenvolvido para CoralVivoVR - Sistema VR profissional completo.
+A cena `passoapasso` foi usada para testar cada etapa do desenvolvimento e serve como base para construção do projeto final.
 
 ---
 
-**🎯 Sistema VR dual: Desktop funcionando + Unity em desenvolvimento!** 🚀
+**Desenvolvido para CoralVivoVR** 🐠✨

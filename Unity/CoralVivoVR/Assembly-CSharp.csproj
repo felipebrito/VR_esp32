@@ -49,6 +49,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets/Scripts/VR/CoralVivoVRManager.cs" />
+    <Compile Include="Assets/Scripts/ESP32/ESP32LEDTester.cs" />
+    <Compile Include="Assets/Scripts/PlayerConfig.cs" />
     <Compile Include="Assets/Scripts/ESP32/ESP32WebSocketClient.cs" />
     <Compile Include="Assets/Scripts/Video/Video360MeshGenerator.cs" />
     <Compile Include="Assets/TutorialInfo/Scripts/Readme.cs" />
