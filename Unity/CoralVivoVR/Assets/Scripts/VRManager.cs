@@ -16,6 +16,10 @@ public class VRManager : MonoBehaviour
     [Header("Configuração")]
     public bool useDesktopMode = true;
     public string videoFileName = "Pierre_Final.mp4";
+    
+    [Header("Player Configuration")]
+    [Range(1, 2)]
+    public int playerId = 1; // 1 = Player 1, 2 = Player 2
 
     [Header("ESP32 Integration")]
     public CoralVivoVR.ESP32.ESP32WebSocketClient esp32Client;
@@ -437,8 +441,8 @@ public class VRManager : MonoBehaviour
             // Enviar comando LED inicial para mostrar estado reproduzindo
             if (esp32Client != null && esp32Client.IsConnected)
             {
-                esp32Client.SendLEDCommand("led1:0");
-                Debug.Log("🟢 LED progresso iniciado");
+                esp32Client.SendLEDCommand(playerId, 0f);
+                Debug.Log($"🟢 LED progresso iniciado (Player {playerId})");
             }
         }
     }
@@ -467,19 +471,20 @@ public class VRManager : MonoBehaviour
         if (videoPlayer != null)
         {
             videoPlayer.Stop();
+            videoPlayer.time = 0; // Reset to beginning
             isPlaying = false;
-            Debug.Log("Vídeo parado");
+            Debug.Log("Vídeo parado e resetado para início");
             
             // Enviar comando LED para desligar completamente
             if (esp32Client != null && esp32Client.IsConnected)
             {
-                esp32Client.SendLEDCommand("off1");
-                Debug.Log("🔴 LED desligado enviado para ESP32");
+                esp32Client.SendLEDCommand(playerId, -1f); // -1 indica desligar
+                Debug.Log($"🔴 LED desligado enviado para ESP32 (Player {playerId})");
             }
             
-            // Preparar vídeo para reiniciar
+            // Preparar vídeo para reiniciar do início
             videoPlayer.Prepare();
-            Debug.Log("🔄 Vídeo preparado para reiniciar");
+            Debug.Log("🔄 Vídeo preparado para reiniciar do início");
         }
     }
 
@@ -503,12 +508,11 @@ public class VRManager : MonoBehaviour
         float progress = (float)videoPlayer.time / (float)videoPlayer.length;
         progress = Mathf.Clamp01(progress);
         
-        // Converter para porcentagem (0-100)
+        // Converter para porcentagem (0-100) para log
         int progressPercent = Mathf.RoundToInt(progress * 100f);
         
-        // Enviar comando LED para ESP32 via WebSocket
-        string ledCommand = $"led1:{progressPercent}";
-        esp32Client.SendLEDCommand(ledCommand);
+        // Enviar comando LED para ESP32 via WebSocket (usar playerId correto)
+        esp32Client.SendLEDCommand(playerId, progress);
         
         // Atualizar timestamp
         lastProgressUpdateTime = Time.time;

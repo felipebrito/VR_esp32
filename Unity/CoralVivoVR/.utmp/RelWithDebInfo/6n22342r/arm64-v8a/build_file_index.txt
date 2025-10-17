@@ -1,0 +1,2 @@
+/Users/brito/Desktop/BIJARI_VR/Unity/CoralVivoVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/CMakeLists.txt
+/Users/brito/Desktop/BIJARI_VR/Unity/CoralVivoVR/Library/Bee/Android/Prj/IL2CPP/Gradle/unityLibrary/src/main/cpp/GameActivity/CMakeLists.txt
