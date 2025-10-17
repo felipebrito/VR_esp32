@@ -1,7 +1,10 @@
 using System.Collections;
+using System.Net.WebSockets;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
-using NativeWebSocket;
 
 namespace CoralVivoVR.ESP32
 {
@@ -32,7 +35,7 @@ namespace CoralVivoVR.ESP32
         
         [Header("🔗 Conexão")]
         [SerializeField] private bool isConnected = false;
-        [SerializeField] private WebSocket webSocket;
+        private ClientWebSocket webSocket;
         
         [Header("🎯 Controles de Teste")]
         [SerializeField] private KeyCode playKey = KeyCode.Space;
@@ -67,38 +70,41 @@ namespace CoralVivoVR.ESP32
                 string url = $"ws://{esp32IP}:{esp32Port}/ws";
                 Debug.Log($"🔌 Conectando ao ESP32: {url}");
                 
-                webSocket = new WebSocket(url);
+                webSocket = new ClientWebSocket();
+                await webSocket.ConnectAsync(new System.Uri(url), CancellationToken.None);
                 
-                webSocket.OnOpen += () =>
-                {
-                    Debug.Log("✅ Conectado ao ESP32!");
-                    isConnected = true;
-                    SendReadyCommand();
-                };
+                Debug.Log("✅ Conectado ao ESP32!");
+                isConnected = true;
+                SendReadyCommand();
                 
-                webSocket.OnMessage += (bytes) =>
-                {
-                    string message = System.Text.Encoding.UTF8.GetString(bytes);
-                    Debug.Log($"📨 ESP32: {message}");
-                };
-                
-                webSocket.OnError += (e) =>
-                {
-                    Debug.LogError($"❌ Erro WebSocket: {e}");
-                    isConnected = false;
-                };
-                
-                webSocket.OnClose += (e) =>
-                {
-                    Debug.Log($"🔌 Desconectado do ESP32: {e}");
-                    isConnected = false;
-                };
-                
-                await webSocket.Connect();
+                // Iniciar loop de recebimento de mensagens
+                _ = Task.Run(ReceiveMessages);
             }
             catch (System.Exception e)
             {
                 Debug.LogError($"❌ Erro ao conectar: {e.Message}");
+                isConnected = false;
+            }
+        }
+        
+        private async Task ReceiveMessages()
+        {
+            var buffer = new byte[1024];
+            try
+            {
+                while (webSocket.State == WebSocketState.Open)
+                {
+                    var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                    if (result.MessageType == WebSocketMessageType.Text)
+                    {
+                        string message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                        Debug.Log($"📨 ESP32: {message}");
+                    }
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"❌ Erro ao receber mensagens: {e.Message}");
             }
         }
         
@@ -106,10 +112,24 @@ namespace CoralVivoVR.ESP32
         {
             if (webSocket != null)
             {
-                await webSocket.Close();
-                webSocket = null;
-                isConnected = false;
-                Debug.Log("🔌 Desconectado do ESP32");
+                try
+                {
+                    if (webSocket.State == WebSocketState.Open)
+                    {
+                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disconnecting", CancellationToken.None);
+                    }
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"❌ Erro ao desconectar: {e.Message}");
+                }
+                finally
+                {
+                    webSocket.Dispose();
+                    webSocket = null;
+                    isConnected = false;
+                    Debug.Log("🔌 Desconectado do ESP32");
+                }
             }
         }
         
@@ -172,11 +192,12 @@ namespace CoralVivoVR.ESP32
         
         private async void SendCommand(string command)
         {
-            if (webSocket != null && isConnected)
+            if (webSocket != null && webSocket.State == WebSocketState.Open)
             {
                 try
                 {
-                    await webSocket.SendText(command);
+                    byte[] buffer = Encoding.UTF8.GetBytes(command);
+                    await webSocket.SendAsync(new ArraySegment<byte>(buffer), WebSocketMessageType.Text, true, CancellationToken.None);
                     Debug.Log($"✅ Comando enviado: {command}");
                 }
                 catch (System.Exception e)
